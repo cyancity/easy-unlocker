@@ -1,0 +1,636 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		09120EE266F452D898E156AB /* ImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77546DC8E6965324BE9653AC /* ImportView.swift */; };
+		114A2853514E59D2B3F2D682 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CC74CFA6ECC5D53992F37B6 /* Models.swift */; };
+		1B7045B1B1A75B9790E2E265 /* PendingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBA9AD5B34DC57B398846192 /* PendingView.swift */; };
+		1BF58379621D5097BE975CD8 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFF32D017FA45973913F18D6 /* Theme.swift */; };
+		2227A707114C550F8123C15C /* encoding.c in Sources */ = {isa = PBXBuildFile; fileRef = 217D7EF5A3A75970ACBE1C28 /* encoding.c */; };
+		311019EE5DAB5A34B93CCA2C /* argon2.c in Sources */ = {isa = PBXBuildFile; fileRef = 239DC66B3B3F5CB2AFCDE3C7 /* argon2.c */; };
+		32A68CBFCC6A5BB2956DE226 /* ref.c in Sources */ = {isa = PBXBuildFile; fileRef = BB19799D3542516597A6AA78 /* ref.c */; };
+		3DC06DAC0A435AE79867731B /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D876CACEFDF5A488095A36B /* Components.swift */; };
+		40948BC3424D53EFB2C3C115 /* thread.c in Sources */ = {isa = PBXBuildFile; fileRef = 0DDF2755A68B50E892547E95 /* thread.c */; };
+		40F517A8772256E7B71DE2C3 /* ItemEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F1068C0ED6B56D1B7026BA6 /* ItemEditView.swift */; };
+		4360AF93F73757BF94B91A41 /* ItemDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC0ABE132A2C54DD8006AB39 /* ItemDetailView.swift */; };
+		44E6A1A0FE785B6384B1AF17 /* SshCert.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5B3A7C50335BE4A92AAC52 /* SshCert.swift */; };
+		4E9F1E438D855F338C84D30E /* BoxPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE6661E716B51FD8731C8C5 /* BoxPayload.swift */; };
+		4F79D96620045D46813A1A4C /* Prefs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F59F7E8557A0519194E93464 /* Prefs.swift */; };
+		56263746EC2454D8A801AC40 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A729E77CB1F5E359164766F /* MainTabView.swift */; };
+		5A8F9E3875145BBD9162DA56 /* EasyUnlockerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03F510BE0D12553B8043648E /* EasyUnlockerApp.swift */; };
+		5F22660148E35B32869F9B04 /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE6EA163258E50BA9892824A /* HistoryStore.swift */; };
+		5FC139D4E1785E87BDDA2ECC /* UnlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90BF294DDB3457C09EEE722C /* UnlockView.swift */; };
+		64FEFEB5A805529F9E247A7B /* BitwardenAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD1B79F5BA3959C88285A896 /* BitwardenAdapter.swift */; };
+		6D68B469A6465664A0E66100 /* blake2b.c in Sources */ = {isa = PBXBuildFile; fileRef = 903CC232CAEE53528AA0878D /* blake2b.c */; };
+		7249C7BB72D95600B0EAC74A /* OpenSshKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBFD34C0CD125121A97C5B7B /* OpenSshKey.swift */; };
+		74615DFC90675B2BAC0EEE0D /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 554F962CF55B5E7F980425DA /* HistoryView.swift */; };
+		77C4C2FB88D959AEA57127A8 /* VaultCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8C76AE302450949777A7CD /* VaultCrypto.swift */; };
+		87F7DBED1B345E3B88E52D54 /* Argon2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58AF9023FBB152D4BB422DD8 /* Argon2.swift */; };
+		A8EE9CAEBBC953D69EB71847 /* VaultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA27A82DC675544BA73646C /* VaultView.swift */; };
+		AD9095295E9153F79BA0A5D5 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73ED1A11455958C5B8E57B20 /* SettingsView.swift */; };
+		AF390623A2F25981962FB2A6 /* EasyUnlockerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B623060F6D2591A83C9AC30 /* EasyUnlockerUITests.swift */; };
+		CA8C7B3B4DDA5B5BB0675314 /* core.c in Sources */ = {isa = PBXBuildFile; fileRef = 68512609EBB9571D80071807 /* core.c */; };
+		CF4B1D8633C456A28CE04429 /* SshWire.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8562269736B75AD19F65853F /* SshWire.swift */; };
+		D4BD610E52B55B3B98F1480C /* GatewaysView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB272AFD22675F8783E60FF5 /* GatewaysView.swift */; };
+		D5A5E05591785A78A0C79B26 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 413CE93A98A75ED39A4E6A16 /* Assets.xcassets */; };
+		DCA38E439CC75A0ABC890A3C /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBCA472B6E0A5B9E844C85EA /* RootView.swift */; };
+		E0BDED042DFF5C2AB76CAEBE /* BrokerClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2D03BA79955E5991F3781D /* BrokerClient.swift */; };
+		EADDBB3835235D099091120E /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F95826BA8C35476B47ABF38 /* AppState.swift */; };
+		F30EB38604155137BF5C0817 /* VaultRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FA45FBD71FD5890A1FBE9C4 /* VaultRepository.swift */; };
+		F4DC0820446F5F91B431641D /* KeychainWrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = C27B339B95595772B71D7EFE /* KeychainWrap.swift */; };
+		FF52AAC7687D54E88FF70534 /* PairingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 242DACA7862F57369E4CDEF6 /* PairingStore.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		03F510BE0D12553B8043648E /* EasyUnlockerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyUnlockerApp.swift; sourceTree = "<group>"; };
+		0DDF2755A68B50E892547E95 /* thread.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = thread.c; sourceTree = "<group>"; };
+		1A2D03BA79955E5991F3781D /* BrokerClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrokerClient.swift; sourceTree = "<group>"; };
+		217D7EF5A3A75970ACBE1C28 /* encoding.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = encoding.c; sourceTree = "<group>"; };
+		239DC66B3B3F5CB2AFCDE3C7 /* argon2.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = argon2.c; sourceTree = "<group>"; };
+		242DACA7862F57369E4CDEF6 /* PairingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingStore.swift; sourceTree = "<group>"; };
+		27FFA7067A68540E9DC869F2 /* EasyUnlockerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EasyUnlockerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2B29DC9AB0C3574EBC02E576 /* EasyUnlocker-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EasyUnlocker-Bridging-Header.h; sourceTree = "<group>"; };
+		2B623060F6D2591A83C9AC30 /* EasyUnlockerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyUnlockerUITests.swift; sourceTree = "<group>"; };
+		2D876CACEFDF5A488095A36B /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		413CE93A98A75ED39A4E6A16 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		4F1068C0ED6B56D1B7026BA6 /* ItemEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemEditView.swift; sourceTree = "<group>"; };
+		554F962CF55B5E7F980425DA /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		58AF9023FBB152D4BB422DD8 /* Argon2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Argon2.swift; sourceTree = "<group>"; };
+		5C243E115C98515DB40EFCAA /* blake2-impl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = blake2-impl.h; sourceTree = "<group>"; };
+		5CC74CFA6ECC5D53992F37B6 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		5CDFAC157EF35B8F8A2FCECB /* blamka-round-ref.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = blamka-round-ref.h; sourceTree = "<group>"; };
+		65BD4CAF1D64591386D271B0 /* blake2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = blake2.h; sourceTree = "<group>"; };
+		68512609EBB9571D80071807 /* core.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = core.c; sourceTree = "<group>"; };
+		6A729E77CB1F5E359164766F /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		73ED1A11455958C5B8E57B20 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		77546DC8E6965324BE9653AC /* ImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportView.swift; sourceTree = "<group>"; };
+		8562269736B75AD19F65853F /* SshWire.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SshWire.swift; sourceTree = "<group>"; };
+		8A3373C9489A56B8A9C97B63 /* EasyUnlocker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyUnlocker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8F95826BA8C35476B47ABF38 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		8FEB272453F1538A96482085 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		903CC232CAEE53528AA0878D /* blake2b.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = blake2b.c; sourceTree = "<group>"; };
+		90BF294DDB3457C09EEE722C /* UnlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnlockView.swift; sourceTree = "<group>"; };
+		99371B7AAEF05855AD660C30 /* encoding.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = encoding.h; sourceTree = "<group>"; };
+		9FA45FBD71FD5890A1FBE9C4 /* VaultRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultRepository.swift; sourceTree = "<group>"; };
+		AC8C76AE302450949777A7CD /* VaultCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultCrypto.swift; sourceTree = "<group>"; };
+		BB19799D3542516597A6AA78 /* ref.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ref.c; sourceTree = "<group>"; };
+		BBA9AD5B34DC57B398846192 /* PendingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingView.swift; sourceTree = "<group>"; };
+		BC0ABE132A2C54DD8006AB39 /* ItemDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemDetailView.swift; sourceTree = "<group>"; };
+		C27B339B95595772B71D7EFE /* KeychainWrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainWrap.swift; sourceTree = "<group>"; };
+		CBCE28104FD05380BFD8FE58 /* EasyUnlocker.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EasyUnlocker.entitlements; sourceTree = "<group>"; };
+		CD1B79F5BA3959C88285A896 /* BitwardenAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BitwardenAdapter.swift; sourceTree = "<group>"; };
+		CFF32D017FA45973913F18D6 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		DAE6661E716B51FD8731C8C5 /* BoxPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoxPayload.swift; sourceTree = "<group>"; };
+		DBCA472B6E0A5B9E844C85EA /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		DD5B3A7C50335BE4A92AAC52 /* SshCert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SshCert.swift; sourceTree = "<group>"; };
+		E5337A8841FC55AF9726A931 /* argon2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = argon2.h; sourceTree = "<group>"; };
+		EE6EA163258E50BA9892824A /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
+		F22A92732EED5AC59A3BF870 /* core.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = core.h; sourceTree = "<group>"; };
+		F59F7E8557A0519194E93464 /* Prefs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prefs.swift; sourceTree = "<group>"; };
+		FB272AFD22675F8783E60FF5 /* GatewaysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewaysView.swift; sourceTree = "<group>"; };
+		FBFD34C0CD125121A97C5B7B /* OpenSshKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenSshKey.swift; sourceTree = "<group>"; };
+		FDA27A82DC675544BA73646C /* VaultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultView.swift; sourceTree = "<group>"; };
+		FFC49B9E2C815148A04D5201 /* thread.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = thread.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		C4C9E7A621B75136869D96BB /* PBXContainerItemProxy */ = {isa = PBXContainerItemProxy;
+			containerPortal = 2E7F16DC04895417BF13DD36 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9A890D76DB2D5F0C8F69C0A8;
+			remoteInfo = EasyUnlocker;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		61869F9EAB7F525AAD3FF87E /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B777A4206A2A5D309E115B8C /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0278E70A2BD85ED59657EE46 /* Products */ = {isa = PBXGroup; children = (
+				8A3373C9489A56B8A9C97B63 /* EasyUnlocker.app */,
+				27FFA7067A68540E9DC869F2 /* EasyUnlockerUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		21F304B714945EAD89716AE7 /* Vendor */ = {
+			isa = PBXGroup;
+			children = (
+				A2E74E9BA4CD5621B2A9DE0C /* Argon2 */,
+			);
+			path = Vendor;
+			sourceTree = "<group>";
+		};
+		3B41DBBB23BE5AD3A11B59E3 /* Crypto */ = {
+			isa = PBXGroup;
+			children = (
+				58AF9023FBB152D4BB422DD8 /* Argon2.swift */,
+				DAE6661E716B51FD8731C8C5 /* BoxPayload.swift */,
+				FBFD34C0CD125121A97C5B7B /* OpenSshKey.swift */,
+				DD5B3A7C50335BE4A92AAC52 /* SshCert.swift */,
+				8562269736B75AD19F65853F /* SshWire.swift */,
+				AC8C76AE302450949777A7CD /* VaultCrypto.swift */,
+			);
+			path = Crypto;
+			sourceTree = "<group>";
+		};
+		5049D065DCD75D5E840427D6 /* blake2 */ = {
+			isa = PBXGroup;
+			children = (
+				5C243E115C98515DB40EFCAA /* blake2-impl.h */,
+				65BD4CAF1D64591386D271B0 /* blake2.h */,
+				903CC232CAEE53528AA0878D /* blake2b.c */,
+				5CDFAC157EF35B8F8A2FCECB /* blamka-round-ref.h */,
+			);
+			path = blake2;
+			sourceTree = "<group>";
+		};
+		9D6A946C7D6C5DC29E6168DF /* EasyUnlockerUITests */ = {isa = PBXGroup; children = (
+				2B623060F6D2591A83C9AC30 /* EasyUnlockerUITests.swift */,
+			);
+			path = EasyUnlockerUITests;
+			sourceTree = "<group>";
+		};
+		A0AC77D940BB592F86D8F848 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				CD1B79F5BA3959C88285A896 /* BitwardenAdapter.swift */,
+				1A2D03BA79955E5991F3781D /* BrokerClient.swift */,
+				EE6EA163258E50BA9892824A /* HistoryStore.swift */,
+				C27B339B95595772B71D7EFE /* KeychainWrap.swift */,
+				242DACA7862F57369E4CDEF6 /* PairingStore.swift */,
+				F59F7E8557A0519194E93464 /* Prefs.swift */,
+				9FA45FBD71FD5890A1FBE9C4 /* VaultRepository.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		A2E74E9BA4CD5621B2A9DE0C /* Argon2 */ = {
+			isa = PBXGroup;
+			children = (
+				239DC66B3B3F5CB2AFCDE3C7 /* argon2.c */,
+				E5337A8841FC55AF9726A931 /* argon2.h */,
+				68512609EBB9571D80071807 /* core.c */,
+				F22A92732EED5AC59A3BF870 /* core.h */,
+				217D7EF5A3A75970ACBE1C28 /* encoding.c */,
+				99371B7AAEF05855AD660C30 /* encoding.h */,
+				BB19799D3542516597A6AA78 /* ref.c */,
+				0DDF2755A68B50E892547E95 /* thread.c */,
+				FFC49B9E2C815148A04D5201 /* thread.h */,
+				5049D065DCD75D5E840427D6 /* blake2 */,
+			);
+			path = Argon2;
+			sourceTree = "<group>";
+		};
+		A72423F6BB4F50408C4DF1A5 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				2D876CACEFDF5A488095A36B /* Components.swift */,
+				FB272AFD22675F8783E60FF5 /* GatewaysView.swift */,
+				554F962CF55B5E7F980425DA /* HistoryView.swift */,
+				77546DC8E6965324BE9653AC /* ImportView.swift */,
+				BC0ABE132A2C54DD8006AB39 /* ItemDetailView.swift */,
+				4F1068C0ED6B56D1B7026BA6 /* ItemEditView.swift */,
+				6A729E77CB1F5E359164766F /* MainTabView.swift */,
+				BBA9AD5B34DC57B398846192 /* PendingView.swift */,
+				DBCA472B6E0A5B9E844C85EA /* RootView.swift */,
+				73ED1A11455958C5B8E57B20 /* SettingsView.swift */,
+				90BF294DDB3457C09EEE722C /* UnlockView.swift */,
+				FDA27A82DC675544BA73646C /* VaultView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		C50E4077D89F5CDD9301C85D /* EasyUnlocker */ = {
+			isa = PBXGroup;
+			children = (
+				8F95826BA8C35476B47ABF38 /* AppState.swift */,
+				2B29DC9AB0C3574EBC02E576 /* EasyUnlocker-Bridging-Header.h */,
+				CBCE28104FD05380BFD8FE58 /* EasyUnlocker.entitlements */,
+				03F510BE0D12553B8043648E /* EasyUnlockerApp.swift */,
+				8FEB272453F1538A96482085 /* Info.plist */,
+				5CC74CFA6ECC5D53992F37B6 /* Models.swift */,
+				CFF32D017FA45973913F18D6 /* Theme.swift */,
+				413CE93A98A75ED39A4E6A16 /* Assets.xcassets */,
+				3B41DBBB23BE5AD3A11B59E3 /* Crypto */,
+				A0AC77D940BB592F86D8F848 /* Data */,
+				21F304B714945EAD89716AE7 /* Vendor */,
+				A72423F6BB4F50408C4DF1A5 /* Views */,
+			);
+			path = EasyUnlocker;
+			sourceTree = "<group>";
+		};
+		D227E37E33035A48B4C397CA = {isa = PBXGroup; children = (
+				C50E4077D89F5CDD9301C85D /* EasyUnlocker */,
+				9D6A946C7D6C5DC29E6168DF /* EasyUnlockerUITests */,
+				0278E70A2BD85ED59657EE46 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		877A25F74E3C560EA9B428ED /* EasyUnlockerUITests */ = {isa = PBXNativeTarget;
+			buildConfigurationList = 455B97B68B5E57C5A7801ED7 /* Build configuration list for PBXNativeTarget "EasyUnlockerUITests" */;
+			buildPhases = (
+				9BA827803066535E909A4D44 /* Sources */,
+				B777A4206A2A5D309E115B8C /* Frameworks */,
+				D5607D5606EE5DF5BE80C811 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				643B301412D556BF985625D5 /* PBXTargetDependency */,
+			);
+			name = EasyUnlockerUITests;
+			productName = EasyUnlockerUITests;
+			productReference = 27FFA7067A68540E9DC869F2 /* EasyUnlockerUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		9A890D76DB2D5F0C8F69C0A8 /* EasyUnlocker */ = {isa = PBXNativeTarget;
+			buildConfigurationList = 6A11596C50EB56B3B3BD7730 /* Build configuration list for PBXNativeTarget "EasyUnlocker" */;
+			buildPhases = (
+				3049ABB5779B56C487F577D4 /* Sources */,
+				61869F9EAB7F525AAD3FF87E /* Frameworks */,
+				6F8379AD71605758BEADF446 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = EasyUnlocker;
+			productName = EasyUnlocker;
+			productReference = 8A3373C9489A56B8A9C97B63 /* EasyUnlocker.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2E7F16DC04895417BF13DD36 /* Project object */ = {isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					9A890D76DB2D5F0C8F69C0A8 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					877A25F74E3C560EA9B428ED = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = 9A890D76DB2D5F0C8F69C0A8;
+					};
+				};
+			};
+			buildConfigurationList = 69B70ED87E0157FC8B10D26B /* Build configuration list for PBXProject "EasyUnlocker" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D227E37E33035A48B4C397CA;
+			productRefGroup = 0278E70A2BD85ED59657EE46 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9A890D76DB2D5F0C8F69C0A8 /* EasyUnlocker */,
+				877A25F74E3C560EA9B428ED /* EasyUnlockerUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		6F8379AD71605758BEADF446 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (
+				D5A5E05591785A78A0C79B26 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5607D5606EE5DF5BE80C811 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3049ABB5779B56C487F577D4 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+				EADDBB3835235D099091120E /* AppState.swift in Sources */,
+				87F7DBED1B345E3B88E52D54 /* Argon2.swift in Sources */,
+				4E9F1E438D855F338C84D30E /* BoxPayload.swift in Sources */,
+				7249C7BB72D95600B0EAC74A /* OpenSshKey.swift in Sources */,
+				44E6A1A0FE785B6384B1AF17 /* SshCert.swift in Sources */,
+				CF4B1D8633C456A28CE04429 /* SshWire.swift in Sources */,
+				77C4C2FB88D959AEA57127A8 /* VaultCrypto.swift in Sources */,
+				64FEFEB5A805529F9E247A7B /* BitwardenAdapter.swift in Sources */,
+				E0BDED042DFF5C2AB76CAEBE /* BrokerClient.swift in Sources */,
+				5F22660148E35B32869F9B04 /* HistoryStore.swift in Sources */,
+				F4DC0820446F5F91B431641D /* KeychainWrap.swift in Sources */,
+				FF52AAC7687D54E88FF70534 /* PairingStore.swift in Sources */,
+				4F79D96620045D46813A1A4C /* Prefs.swift in Sources */,
+				F30EB38604155137BF5C0817 /* VaultRepository.swift in Sources */,
+				5A8F9E3875145BBD9162DA56 /* EasyUnlockerApp.swift in Sources */,
+				114A2853514E59D2B3F2D682 /* Models.swift in Sources */,
+				1BF58379621D5097BE975CD8 /* Theme.swift in Sources */,
+				311019EE5DAB5A34B93CCA2C /* argon2.c in Sources */,
+				6D68B469A6465664A0E66100 /* blake2b.c in Sources */,
+				CA8C7B3B4DDA5B5BB0675314 /* core.c in Sources */,
+				2227A707114C550F8123C15C /* encoding.c in Sources */,
+				32A68CBFCC6A5BB2956DE226 /* ref.c in Sources */,
+				40948BC3424D53EFB2C3C115 /* thread.c in Sources */,
+				3DC06DAC0A435AE79867731B /* Components.swift in Sources */,
+				D4BD610E52B55B3B98F1480C /* GatewaysView.swift in Sources */,
+				74615DFC90675B2BAC0EEE0D /* HistoryView.swift in Sources */,
+				09120EE266F452D898E156AB /* ImportView.swift in Sources */,
+				4360AF93F73757BF94B91A41 /* ItemDetailView.swift in Sources */,
+				40F517A8772256E7B71DE2C3 /* ItemEditView.swift in Sources */,
+				56263746EC2454D8A801AC40 /* MainTabView.swift in Sources */,
+				1B7045B1B1A75B9790E2E265 /* PendingView.swift in Sources */,
+				DCA38E439CC75A0ABC890A3C /* RootView.swift in Sources */,
+				AD9095295E9153F79BA0A5D5 /* SettingsView.swift in Sources */,
+				5FC139D4E1785E87BDDA2ECC /* UnlockView.swift in Sources */,
+				A8EE9CAEBBC953D69EB71847 /* VaultView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BA827803066535E909A4D44 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+				AF390623A2F25981962FB2A6 /* EasyUnlockerUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		643B301412D556BF985625D5 /* PBXTargetDependency */ = {isa = PBXTargetDependency;
+			target = 9A890D76DB2D5F0C8F69C0A8 /* EasyUnlocker */;
+			targetProxy = C4C9E7A621B75136869D96BB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		10C1C5406A785262A6414B3A /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.cyancity.easyunlocker.UITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = EasyUnlocker;
+			};
+			name = Release;
+		};
+		129DE29F71EE52A4A5B518D9 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = EasyUnlocker/EasyUnlocker.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = EasyUnlocker/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.cyancity.easyunlocker;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = EasyUnlocker/EasyUnlocker-Bridging-Header.h;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/EasyUnlocker/Vendor/Argon2";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		508971FB4C2654BF99BB4A9E /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.cyancity.easyunlocker.UITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = EasyUnlocker;
+			};
+			name = Debug;
+		};
+		8F2831C6D26A59FCA9357B04 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = -Onone;
+				SWIFT_COMPILATION_MODE = singlefile;
+
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+			};
+			name = Debug;
+		};
+		CFFEE0BEE35857ED9C2BC086 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = EasyUnlocker/EasyUnlocker.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = EasyUnlocker/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.cyancity.easyunlocker;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = EasyUnlocker/EasyUnlocker-Bridging-Header.h;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/EasyUnlocker/Vendor/Argon2";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		F99C59943247572D8F89E084 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = NO;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_OPTIMIZATION_LEVEL = -O;
+				SWIFT_COMPILATION_MODE = wholemodule;
+
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		455B97B68B5E57C5A7801ED7 /* Build configuration list for PBXNativeTarget "EasyUnlockerUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				508971FB4C2654BF99BB4A9E /* Debug */,
+				10C1C5406A785262A6414B3A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		69B70ED87E0157FC8B10D26B /* Build configuration list for PBXProject "EasyUnlocker" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8F2831C6D26A59FCA9357B04 /* Debug */,
+				F99C59943247572D8F89E084 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6A11596C50EB56B3B3BD7730 /* Build configuration list for PBXNativeTarget "EasyUnlocker" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				129DE29F71EE52A4A5B518D9 /* Debug */,
+				CFFEE0BEE35857ED9C2BC086 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 2E7F16DC04895417BF13DD36 /* Project object */;
+}

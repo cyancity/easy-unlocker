@@ -1,0 +1,47 @@
+# 密钥与本地产物 —— 本项目的存在理由就是不让密钥落盘
+.env
+.env.*
+*.pem
+*.key
+*.crt
+!*.pub
+
+# 运行时数据
+/data/
+logs/
+*.db
+*.sqlite
+
+# Android
+android/.gradle/
+android/local.properties
+android/app/build/
+android/.idea/
+android/app/google-services.json
+
+# 依赖与构建产物
+node_modules/
+__pycache__/
+*.pyc
+dist/
+build/
+target/
+.venv/
+venv/
+
+# Cloudflare Workers（spike）
+worker/.wrangler/
+worker/.dev.vars
+worker/.prod.vars
+
+# 编辑器与系统
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# 任务 worktree（AGENTS.md 约定任务都在 .worktree/<slug>，不入库）
+.worktree/
+
+# Xcode
+xcuserdata/

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>添加条目 · easy-unlocker</title>
+<link rel="stylesheet" href="screen.css" />
+<style>
+  .field-input {
+    width: 100%; border: 0; background: none; outline: none;
+    font-family: var(--font-mono); font-size: var(--text-base);
+    color: var(--fg); padding: 0;
+  }
+  .field-input::placeholder { color: var(--meta); }
+  textarea.field-input { resize: none; line-height: 1.5; display: block; }
+  .form-label {
+    font-size: var(--text-xs); color: var(--muted);
+    margin: 0 32px 6px; letter-spacing: 0.02em;
+  }
+  .err {
+    margin: 10px 32px 0;
+    font-size: var(--text-sm); color: var(--danger); font-weight: 500;
+    display: none;
+  }
+  .err.show { display: block; }
+  .ca-hint {
+    margin: 10px 32px 0;
+    font-size: var(--text-sm); color: var(--accent-active); line-height: 1.45;
+    display: none;
+  }
+  .ca-hint.show { display: block; }
+</style>
+</head>
+<body>
+
+  <!-- ─── 模态导航：取消 / 保存 ─── -->
+  <div class="nav" data-od-id="nav">
+    <div class="nav-bar">
+      <a class="nav-action" href="vault.html">取消</a>
+      <span class="title">添加条目</span>
+      <button class="nav-action strong" id="saveBtn" data-od-id="save">保存</button>
+    </div>
+  </div>
+
+  <div class="scroll" data-od-id="content" style="padding-top: 8px;">
+    <!-- ─── 名称 ─── -->
+    <p class="form-label">名称</p>
+    <div class="igroup" data-od-id="field-name">
+      <div class="irow" style="min-height: 46px;">
+        <input class="field-input" id="fName" placeholder="OPENAI_API_KEY" autocomplete="off" autocapitalize="characters" />
+      </div>
+    </div>
+
+    <!-- ─── 密码 ─── -->
+    <p class="form-label" style="margin-top: 18px;">密码 · 短值</p>
+    <div class="igroup" data-od-id="field-secret">
+      <div class="irow" style="min-height: 46px;">
+        <input class="field-input" id="fSecret" placeholder="粘贴 token / 密码" autocomplete="off" />
+      </div>
+    </div>
+
+    <!-- ─── 备注 ─── -->
+    <p class="form-label" style="margin-top: 18px;">备注 · 长文本（可空）</p>
+    <div class="igroup" data-od-id="field-note">
+      <div class="irow" style="align-items: stretch;">
+        <textarea class="field-input" id="fNote" rows="4" placeholder="SSH 私钥、整段 .env 放这里"></textarea>
+      </div>
+    </div>
+
+    <p class="ca-hint" id="caHint">备注里是一把 SSH 私钥——这条可以当 CA 给 easyGet ssh 签证书。</p>
+
+    <!-- ─── SSH CA 私钥：生成 / 导入 ─── -->
+    <div id="caBlock">
+      <p class="form-label" style="margin-top: 14px;">SSH CA 私钥（可空）</p>
+      <div class="igroup" id="genGroup" data-od-id="gen-ca">
+        <button class="irow tappable" id="genBtn" style="min-height: 46px;">
+          <span class="grow" style="color: var(--accent); font-size: var(--text-base);">生成一把新私钥</span>
+        </button>
+        <div class="irow is-disabled" style="min-height: 46px;" aria-disabled="true" data-od-id="import-key">
+          <span class="grow" style="font-size: var(--text-base);">导入已有私钥</span>
+          <span class="chip">即将推出</span>
+        </div>
+      </div>
+      <p class="foot-note" style="text-align: left; margin: 8px 20px 0;">生成的私钥会直接写进上面的备注栏，只存在本机保险库。</p>
+    </div>
+
+    <p class="err" id="formErr" role="alert">名称和密码都要有。</p>
+
+    <p class="foot-note" data-od-id="edit-foot">和 easyGet 里的请求名可以不同，审批时手选对齐。</p>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+<script>
+  var fName = document.getElementById('fName');
+  var fSecret = document.getElementById('fSecret');
+  var fNote = document.getElementById('fNote');
+  var caHint = document.getElementById('caHint');
+  var caBlock = document.getElementById('caBlock');
+  var formErr = document.getElementById('formErr');
+  var toast = document.getElementById('toast');
+
+  function refreshCa() {
+    var isKey = /BEGIN OPENSSH PRIVATE KEY/.test(fNote.value);
+    caHint.classList.toggle('show', isKey);
+    caBlock.style.display = isKey ? 'none' : '';
+  }
+  fNote.addEventListener('input', refreshCa);
+
+  [fName, fSecret, fNote].forEach(function (el) {
+    el.addEventListener('input', function () { formErr.classList.remove('show'); });
+  });
+
+  document.getElementById('genBtn').onclick = function () {
+    fNote.value = 'BEGIN OPENSSH PRIVATE KEY (demo)\n<demo fixture, not a real key>\nEND OPENSSH PRIVATE KEY (demo)';
+    refreshCa();
+  };
+
+  document.getElementById('saveBtn').onclick = function () {
+    if (!fName.value.trim() || !fSecret.value.trim()) {
+      formErr.classList.add('show');
+      return;
+    }
+    toast.textContent = '已保存';
+    toast.hidden = false;
+    setTimeout(function () { toast.hidden = true; }, 1500);
+  };
+</script>
+</body>
+</html>

@@ -1,0 +1,563 @@
+/* ─────────────────────────────────────────────────────────────────────────
+ * design-systems/apple/tokens.css
+ *
+ * Structured token bindings for the Apple-inspired design system —
+ * a precision editorial language built around white-space discipline,
+ * SF Pro typography, and a single restrained blue accent. This file
+ * is the *machine-readable* form of the values described in
+ * `DESIGN.md`. Agents are expected to paste the `:root { … }` block
+ * verbatim into the first `<style>` of every artifact they generate
+ * against this design system, then reference everything via
+ * var(--name) from then on.
+ *
+ * Why this file exists:
+ *   DESIGN.md tells humans that Apple uses "Pale Apple Gray (#f5f5f7)
+ *   as the main light surface" and "Apple Action Blue (#0071e3) as the
+ *   primary accent", but agents have to translate those prose names
+ *   into the standard token names the lint enforces (`--surface`,
+ *   `--accent`). That translation step is where token misuse happens.
+ *   This file pre-translates the brand once, so agents copy structure
+ *   instead of inventing it.
+ *
+ * Brand-specific schema decisions (non-obvious bindings worth flagging
+ * for reviewers and downstream brand authors):
+ *   1. We bind --surface-warm to a real intermediate tier (#fbfbfd),
+ *      NOT an alias of --surface. Apple's surface ladder genuinely has
+ *      three light stops — pure white retail canvas, near-white
+ *      brightness-shifted bands, and pale Apple gray feature fields —
+ *      so collapsing surface-warm would erase a real brand feature.
+ *   2. We bind --fg-2, --meta, and --border-soft to independent values
+ *      rather than aliases. Apple's neutral text ramp is famously
+ *      four-stop (Near-Black Ink → Utility Dark Gray → Secondary
+ *      Neutral Gray → Mid Border Gray) and the schema's B-slots map
+ *      onto it cleanly.
+ *   3. --radius-pill is bound to 980px, not 9999px. Apple's signature
+ *      capsule CTA literally uses 980px in published CSS, and the
+ *      number is itself a brand-recognisable detail; we keep it.
+ *   4. --accent-hover lifts (#0077ed) instead of darkening. Apple's
+ *      live blue buttons brighten slightly on hover rather than mix
+ *      toward black; the schema's default formula would fight that.
+ *      --accent-active darkens to #0066cc — the documented Body Link
+ *      Blue — so the active state aligns with Apple's read-link tone.
+ *   5. --tracking-display is -0.015em. The DESIGN.md hierarchy lists
+ *      -1.2px on 80px hero (-0.015em); tighter than that breaks at
+ *      smaller display sizes, looser loses Apple's machined feel.
+ *   6. --section-y-desktop is 100px. Apple's billboard chapters lean
+ *      noticeably more generous than the schema default of 80px — the
+ *      breathing room is what lets product imagery do the talking.
+ *   7. --ease-standard is cubic-bezier(0.28, 0, 0.22, 1), an Apple-
+ *      flavoured smooth-out instead of the schema default. Apple
+ *      transitions decelerate hard then settle, never bounce.
+ *
+ * Contract sources:
+ *   - Standard token names: design-systems/_schema/tokens.schema.ts
+ *       (TOKEN_SCHEMA — every name below appears there or as an
+ *        explicit B-slot alias.)
+ *   - A2 fallback values: design-systems/_schema/defaults.css
+ *       (We override --motion-base, --ease-standard, --elev-raised,
+ *        --focus-ring, --radius-pill; the rest match defaults.)
+ *   - Lint enforcement: apps/daemon/src/lint-artifact.ts
+ *       (raw-hex >12 outside :root → P1; non-token accent → P0)
+ *
+ * Keep this file additive: never invent token names not also documented
+ * in DESIGN.md or the shared schema. New Apple-derived sub-brands
+ * cloning this template should overwrite values, not rename keys.
+ * ─────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ─── Surface (3 levels) ────────────────────────────────────────── */
+  --bg: #ffffff;
+  --surface: #f5f5f7;
+  --surface-warm: #fbfbfd;
+
+  /* ─── Foreground ramp (4 levels) ───────────────────────────────── */
+  --fg: #1d1d1f;
+  --fg-2: #424245;
+  --muted: #6e6e73;
+  --meta: #86868b;
+
+  /* ─── Border (2 levels) ────────────────────────────────────────── */
+  --border: #d2d2d7;
+  --border-soft: #e8e8ed;
+
+  /* ─── Accent ────────────────────────────────────────────────────── */
+  --accent: #0071e3;
+  --accent-on: #ffffff; /* white label on the blue fill */
+
+  /* ─── Accent states ─────────────────────────────────────────────── */
+  --accent-hover: #0077ed;
+  --accent-active: #0066cc;
+
+  /* ─── Semantic ──────────────────────────────────────────────────── */
+  --success: #16a34a;
+  --warn:    #eab308;
+  --danger:  #dc2626;
+
+  /* ─── Typography ────────────────────────────────────────────────── */
+  --font-display:
+    "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body:
+    "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono:
+    "SF Mono", ui-monospace, "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+
+  /* Type scale (px) — derived from DESIGN.md §3 hierarchy table. */
+  --text-xs:   12px;   /* Micro UI — fine print, micro labels */
+  --text-sm:   14px;   /* Control Label — buttons, helper labels */
+  --text-base: 17px;   /* Body Primary — Apple's reading baseline */
+  --text-lg:   21px;   /* Link/Action Heading — large promo links */
+  --text-xl:   28px;   /* Card/Product Title — tile-level naming */
+  --text-2xl:  40px;   /* Product Heading — campaign section titles */
+  --text-3xl:  56px;   /* Hero Display L — homepage hero moments */
+  --text-4xl:  80px;   /* Hero Display XL — Environment / store hero */
+
+  --leading-body:  1.47;   /* SF Pro Text body, 17px */
+  --leading-tight: 1.05;   /* Hero Display XL ceiling */
+
+  --tracking-display: -0.015em;
+
+  /* ─── Spacing ───────────────────────────────────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* ─── Section rhythm ────────────────────────────────────────────── */
+  --section-y-desktop: 100px;
+  --section-y-tablet:  64px;
+  --section-y-phone:   40px;
+
+  /* ─── Radius ────────────────────────────────────────────────────── */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   18px;
+  --radius-pill: 980px;
+
+  /* ─── Elevation (3 levels) ──────────────────────────────────────── */
+  --elev-flat:   none;
+  --elev-ring:   0 0 0 1px var(--border);
+  --elev-raised: 0 12px 32px rgba(0, 0, 0, 0.08);
+
+  /* ─── Focus ring ────────────────────────────────────────────────── */
+  --focus-ring: 0 0 0 4px color-mix(in oklab, var(--accent), transparent 65%);
+
+  /* ─── Motion ────────────────────────────────────────────────────── */
+  --motion-fast:   150ms;
+  --motion-base:   220ms;
+  --ease-standard: cubic-bezier(0.28, 0, 0.22, 1);
+
+  /* ─── Layout ────────────────────────────────────────────────────── */
+  --container-max:            1024px;
+  --container-gutter-desktop: 22px;
+  --container-gutter-tablet:  18px;
+  --container-gutter-phone:   16px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * easy-unlocker iOS primitives
+ * Built on the token contract above — no raw hex below this line.
+ * Screens render inside /frames/iphone-15-pro.html which supplies the
+ * status bar, Dynamic Island and home indicator; inner viewport ≈ 366×745.
+ * ═══════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--surface);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+a { color: var(--accent-active); text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
+
+.mono  { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+/* ─── Navigation ─────────────────────────────────────────────────── */
+.nav { flex: 0 0 auto; padding: 10px 16px 6px; }
+.nav-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  min-height: 44px; gap: 8px;
+}
+.nav-bar .title {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 600; letter-spacing: -0.01em;
+  position: absolute; left: 0; right: 0; text-align: center;
+  pointer-events: none;
+}
+.nav-bar { position: relative; }
+.nav-back, .nav-action {
+  display: inline-flex; align-items: center; gap: 2px;
+  min-height: 44px; padding: 0 4px;
+  color: var(--accent);
+  font-size: var(--text-base);
+  z-index: 1;
+}
+.nav-back svg, .nav-action svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.nav-action.strong { font-weight: 600; }
+.nav-action:active, .nav-back:active { color: var(--accent-active); }
+
+.nav-large {
+  font-family: var(--font-display);
+  font-size: 34px; font-weight: 700;
+  letter-spacing: var(--tracking-display);
+  line-height: 1.12;
+  margin: 0; padding: 2px 0 8px;
+}
+.nav-large-row { display: flex; align-items: center; justify-content: space-between; }
+.nav-add {
+  width: 44px; height: 44px; display: grid; place-items: center;
+  color: var(--accent);
+}
+.nav-add svg { width: 26px; height: 26px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; }
+.nav-add:active { color: var(--accent-active); }
+
+/* ─── Search field (iOS) ─────────────────────────────────────────── */
+.search-wrap { padding: 2px 16px 10px; }
+.search {
+  display: flex; align-items: center; gap: 6px;
+  height: 36px; padding: 0 10px;
+  background: color-mix(in oklab, var(--meta) 16%, var(--bg));
+  border-radius: 10px;
+  color: var(--muted);
+}
+.search svg { width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; flex: 0 0 auto; }
+.search input {
+  flex: 1; border: 0; background: none; outline: none;
+  font: inherit; font-size: var(--text-base); color: var(--fg);
+  min-width: 0;
+}
+.search input::placeholder { color: var(--muted); }
+
+/* ─── Grouped inset list ─────────────────────────────────────────── */
+.group-label {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 22px 32px 6px;
+}
+.igroup {
+  margin: 0 16px;
+  background: var(--bg);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.irow {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 48px; padding: 10px 16px;
+  position: relative;
+  text-align: left; width: 100%;
+  color: var(--fg);
+}
+.irow + .irow::before {
+  content: '';
+  position: absolute; top: 0; left: 16px; right: 0;
+  height: 1px; background: var(--border-soft);
+}
+.irow.tappable:active { background: var(--surface); }
+.irow.is-disabled { color: var(--meta); cursor: default; }
+.irow.is-disabled:active { background: none; }
+.irow .grow { flex: 1; min-width: 0; }
+.irow .value {
+  color: var(--muted); font-size: var(--text-base);
+  max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-align: right;
+}
+.chev { width: 8px; height: 14px; stroke: var(--meta); fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; opacity: .75; }
+
+.row-title { font-size: var(--text-base); font-weight: 500; line-height: 1.3; }
+.row-sub { font-size: var(--text-sm); color: var(--muted); line-height: 1.3; margin-top: 1px; }
+
+/* ─── iOS switch ─────────────────────────────────────────────────── */
+.switch {
+  width: 51px; height: 31px; border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--meta) 28%, var(--bg));
+  position: relative; flex: 0 0 auto;
+  transition: background var(--motion-base) var(--ease-standard);
+}
+.switch::after {
+  content: '';
+  position: absolute; top: 2px; left: 2px;
+  width: 27px; height: 27px; border-radius: 50%;
+  background: var(--bg);
+  box-shadow: 0 2px 6px rgba(0,0,0,.18), 0 0 0 0.5px rgba(0,0,0,.06);
+  transition: transform var(--motion-base) var(--ease-standard);
+}
+.switch.on { background: var(--success); }
+.switch.on::after { transform: translateX(20px); }
+
+/* ─── Segmented control ──────────────────────────────────────────── */
+.seg {
+  display: flex; padding: 2px;
+  background: color-mix(in oklab, var(--meta) 14%, var(--bg));
+  border-radius: 9px;
+}
+.seg button {
+  flex: 1; min-height: 32px; padding: 4px 10px;
+  border-radius: 7px;
+  font-size: var(--text-sm); font-weight: 500;
+  color: var(--fg);
+  transition: background var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
+}
+.seg button.on {
+  background: var(--bg);
+  box-shadow: 0 1px 4px rgba(0,0,0,.12), 0 0 0 0.5px rgba(0,0,0,.04);
+}
+
+/* ─── App tab bar (inside the screen, above home indicator) ──────── */
+.tabbar-app {
+  flex: 0 0 auto;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface-warm) 88%, transparent);
+  backdrop-filter: blur(20px);
+}
+.tab-item {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 9px 0 4px;
+  color: var(--meta);
+  font-size: 10px; font-weight: 500; letter-spacing: 0.01em;
+  position: relative;
+}
+.tab-item.on { color: var(--accent); }
+.tab-item svg { width: 25px; height: 25px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tab-item .badge {
+  position: absolute; top: 4px; left: calc(50% + 8px);
+  min-width: 17px; height: 17px; padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--danger); color: var(--accent-on);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  display: grid; place-items: center;
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────── */
+.actions { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+.btn-pill {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 50px;
+  padding: 13px 20px;
+  background: var(--accent); color: var(--accent-on);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-base); font-weight: 600; letter-spacing: -0.01em;
+  transition: background var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
+}
+.btn-pill:hover { background: var(--accent-hover); }
+.btn-pill:active { background: var(--accent-active); transform: scale(0.985); }
+.btn-pill[disabled] { background: color-mix(in oklab, var(--accent) 38%, var(--bg)); cursor: default; transform: none; }
+.btn-pill svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.btn-quiet {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; min-height: 44px;
+  color: var(--accent);
+  font-size: var(--text-base); font-weight: 500;
+  border-radius: var(--radius-pill);
+}
+.btn-quiet:active { color: var(--accent-active); background: color-mix(in oklab, var(--accent) 8%, var(--bg)); }
+.btn-quiet.danger { color: var(--danger); }
+.btn-quiet.danger:active { background: color-mix(in oklab, var(--danger) 8%, var(--bg)); }
+
+/* Tinted pill — iOS 15+ secondary action shape: same silhouette as the
+   primary capsule, light tinted fill instead of a bare text label. */
+.btn-tinted {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 46px; padding: 11px 20px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--accent) 10%, var(--bg));
+  color: var(--accent-active);
+  font-size: var(--text-base); font-weight: 600; letter-spacing: -0.01em;
+  transition: background var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
+}
+.btn-tinted svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.btn-tinted:active { background: color-mix(in oklab, var(--accent) 18%, var(--bg)); transform: scale(0.985); }
+.btn-tinted.danger { background: color-mix(in oklab, var(--danger) 9%, var(--bg)); color: var(--danger); }
+.btn-tinted.danger:active { background: color-mix(in oklab, var(--danger) 16%, var(--bg)); }
+
+/* Side-by-side secondary actions: two tinted pills share one row inside
+   .actions. Each stays ≥44px tall; hiding one lets the other fill the row. */
+.actions-row { display: flex; gap: 10px; }
+.actions-row > * { flex: 1; min-width: 0; }
+.actions-row .btn-tinted { min-height: 44px; padding: 10px 14px; gap: 6px; }
+
+/* ─── Notice cards ───────────────────────────────────────────────── */
+.notice {
+  margin: 12px 16px 0;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: var(--text-sm); line-height: 1.4;
+}
+.notice .n-title { font-weight: 600; margin-bottom: 3px; }
+.notice.info { background: color-mix(in oklab, var(--accent) 9%, var(--bg)); color: var(--accent-active); }
+.notice.warn { background: color-mix(in oklab, var(--warn) 14%, var(--bg)); color: color-mix(in oklab, var(--warn) 45%, var(--fg)); }
+
+/* ─── Value card (secret / note) ─────────────────────────────────── */
+.kv-label {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 20px 20px 6px;
+  font-size: var(--text-xs); color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.kv-card {
+  margin: 0 16px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+.kv-card .secret {
+  font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.55;
+  word-break: break-all; white-space: pre-wrap;
+}
+.kv-card .secret.empty { color: var(--meta); }
+.kv-card.accent { background: color-mix(in oklab, var(--accent) 7%, var(--bg)); border-color: color-mix(in oklab, var(--accent) 22%, var(--bg)); }
+
+.copybtn {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 32px; padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-size: var(--text-xs); font-weight: 600;
+}
+.copybtn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.copybtn:active { background: var(--border-soft); }
+.copybtn.done { color: var(--success); border-color: color-mix(in oklab, var(--success) 40%, var(--bg)); }
+
+/* ─── Chips & status ─────────────────────────────────────────────── */
+.chip {
+  display: inline-flex; align-items: center;
+  min-height: 26px; padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs); font-weight: 500;
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--fg-2);
+}
+.chip.ok    { color: var(--success); border-color: color-mix(in oklab, var(--success) 35%, var(--bg)); background: color-mix(in oklab, var(--success) 8%, var(--bg)); }
+.chip.warn  { color: color-mix(in oklab, var(--warn) 55%, var(--fg)); border-color: color-mix(in oklab, var(--warn) 40%, var(--bg)); background: color-mix(in oklab, var(--warn) 10%, var(--bg)); }
+.chip.bad   { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 30%, var(--bg)); background: color-mix(in oklab, var(--danger) 7%, var(--bg)); }
+.chip.info  { color: var(--accent-active); border-color: color-mix(in oklab, var(--accent) 28%, var(--bg)); background: color-mix(in oklab, var(--accent) 7%, var(--bg)); }
+
+/* ─── Request card (pending + record detail) ─────────────────────── */
+.req-card {
+  margin: 10px 16px 0;
+  background: var(--bg);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+.req-head { display: flex; align-items: center; gap: 12px; }
+.req-dev {
+  width: 44px; height: 44px; border-radius: 12px; flex: 0 0 auto;
+  background: var(--surface);
+  display: grid; place-items: center;
+}
+.req-dev svg { width: 23px; height: 23px; stroke: var(--fg-2); fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.req-who { flex: 1; min-width: 0; }
+.req-who .who-name { font-size: var(--text-base); font-weight: 600; line-height: 1.25; }
+.req-who .who-sub { font-size: var(--text-sm); color: var(--muted); line-height: 1.3; }
+
+.ttl-ring { width: 46px; height: 46px; position: relative; flex: 0 0 auto; }
+.ttl-ring svg { width: 46px; height: 46px; transform: rotate(-90deg); }
+.ttl-ring .r-bg { fill: none; stroke: var(--border-soft); stroke-width: 3.5; }
+.ttl-ring .r-fg {
+  fill: none; stroke: var(--success); stroke-width: 3.5; stroke-linecap: round;
+  stroke-dasharray: 113.1;
+  transition: stroke var(--motion-base) var(--ease-standard);
+}
+.ttl-num {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+  color: var(--fg-2); font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+}
+
+.req-name {
+  font-family: var(--font-mono);
+  font-size: 30px; font-weight: 650;
+  letter-spacing: -0.03em; line-height: 1.15;
+  margin-top: 18px; word-break: break-all;
+}
+
+.req-field { margin-top: 14px; }
+.req-field + .req-field { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.req-flabel {
+  font-size: 11px; color: var(--meta);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin-bottom: 5px;
+}
+.req-fval { font-size: var(--text-sm); color: var(--fg-2); line-height: 1.45; margin: 0; }
+.req-cmd {
+  display: flex; gap: 8px; align-items: baseline;
+  background: var(--fg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.5;
+  color: var(--surface);
+  word-break: break-all;
+}
+.req-cmd .prompt { color: var(--success); flex: 0 0 auto; user-select: none; }
+
+/* ─── Action sheet ───────────────────────────────────────────────── */
+.scrim {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.32);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  z-index: 40;
+}
+.scrim[hidden] { display: none; }
+.sheet-group { margin: 0 8px 8px; border-radius: 14px; overflow: hidden; background: var(--bg); }
+.sheet-title {
+  padding: 14px 16px 10px; text-align: center;
+  font-size: var(--text-sm); color: var(--muted); line-height: 1.35;
+}
+.sheet-row {
+  display: block; width: 100%;
+  min-height: 52px; padding: 14px 16px;
+  text-align: center; font-size: var(--text-base); color: var(--accent);
+  position: relative; background: var(--bg);
+}
+.sheet-row + .sheet-row::before, .sheet-title + .sheet-row::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--border-soft);
+}
+.sheet-row:active { background: var(--surface); }
+.sheet-row.danger { color: var(--danger); }
+.sheet-row.strong { font-weight: 600; }
+.sheet-cancel { margin: 0 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
+
+/* ─── Toast ──────────────────────────────────────────────────────── */
+.toast {
+  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%);
+  background: var(--fg); color: var(--bg);
+  font-size: var(--text-sm); font-weight: 500;
+  padding: 10px 18px; border-radius: var(--radius-pill);
+  box-shadow: var(--elev-raised);
+  z-index: 60; white-space: nowrap;
+  animation: toast-in var(--motion-base) var(--ease-standard);
+}
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ─── Footer notes ───────────────────────────────────────────────── */
+.foot-note {
+  margin: 20px 32px 8px;
+  font-size: var(--text-xs); color: var(--muted); line-height: 1.45;
+  text-align: center;
+}
+.scroll { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
+.scroll::-webkit-scrollbar { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .switch, .switch::after, .seg button, .btn-pill, .btn-tinted { transition: none; }
+  .toast { animation: none; }
+}

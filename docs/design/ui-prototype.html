@@ -1,0 +1,805 @@
+<!doctype html>
+<!--
+  easy-unlocker · Android P1 — 可点通原型
+  设计规格在 easy-unlocker-android-design-v2.html；本文件只做一件事：把那条链路跑通。
+  令牌与 v2 完全一致（同一套 oklch + color-mix 派生），两套主题共用。
+  机身外面那一条是原型控制，不属于产品界面。
+  Vanilla JS + 事件委托；无框架、无外部请求。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>easy-unlocker · 可点通原型</title>
+<style>
+  :root {
+    --bg: oklch(97.6% 0.003 265); --surface: oklch(100% 0 0); --raised: oklch(94.9% 0.007 269);
+    --fg: oklch(20.1% 0.012 271); --muted: oklch(49.6% 0.019 266); --border: oklch(91.8% 0.009 265);
+    --accent: oklch(57.7% 0.209 274); --warn: oklch(53.3% 0.119 66); --danger: oklch(54.5% 0.172 24);
+    --on-accent: oklch(100% 0 0);
+    --border-strong: oklch(63.6% 0.025 267);
+    --ink: oklch(20.1% 0.012 271); --bezel: oklch(20.1% 0.012 271);
+    --accent-text: color-mix(in oklch, var(--accent) 80%, var(--fg));
+    --on-warn: oklch(100% 0 0);
+    --on-danger: oklch(100% 0 0);   /* 浅色 danger 偏深，白字 5.40:1 */
+    --warn-text: color-mix(in oklch, var(--warn) 80%, var(--fg));
+    --danger-text: color-mix(in oklch, var(--danger) 80%, var(--fg));
+    --accent-fill-h: color-mix(in oklch, var(--accent) 78%, var(--ink));
+    --accent-quiet: color-mix(in oklch, var(--accent) 14%, var(--bg));
+    --warn-quiet: color-mix(in oklch, var(--warn) 14%, var(--bg));
+    --danger-quiet: color-mix(in oklch, var(--danger) 14%, var(--bg));
+    --accent-soft: color-mix(in oklch, var(--accent) 22%, transparent);
+    --fg-soft: color-mix(in oklch, var(--fg) 7%, transparent);
+    --hair: color-mix(in oklch, var(--fg) 10%, transparent);
+    --dim: color-mix(in oklch, var(--fg) 40%, var(--bg));
+    --shadow: color-mix(in oklch, var(--ink) 22%, transparent);
+    color-scheme: light;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  }
+  [data-theme="dark"] {
+    --bg: oklch(29.7% 0.008 264); --surface: oklch(32.1% 0.009 268); --raised: oklch(34.9% 0.011 271);
+    --fg: oklch(96.4% 0.003 265); --muted: oklch(73.0% 0.013 260); --border: oklch(37.6% 0.011 271);
+    --accent: oklch(57.7% 0.209 274); --warn: oklch(80.1% 0.151 81); --danger: oklch(63.7% 0.215 25);
+    --on-accent: oklch(100% 0 0);
+    --border-strong: oklch(58.6% 0.015 267);
+    --ink: oklch(17.3% 0.004 264); --bezel: oklch(17.3% 0.004 264);
+    --accent-text: color-mix(in oklch, var(--accent) 55%, var(--fg));
+    --on-warn: oklch(17.3% 0.004 264);
+    --on-danger: oklch(17.3% 0.004 264);  /* 深色 danger 偏亮，白字只有 3.77，必须用近黑 5.05 */
+    --warn-text: color-mix(in oklch, var(--warn) 55%, var(--fg));
+    --danger-text: color-mix(in oklch, var(--danger) 55%, var(--fg));
+    --accent-fill-h: color-mix(in oklch, var(--accent) 78%, var(--ink));
+    --accent-quiet: color-mix(in oklch, var(--accent) 14%, var(--bg));
+    --warn-quiet: color-mix(in oklch, var(--warn) 14%, var(--bg));
+    --danger-quiet: color-mix(in oklch, var(--danger) 14%, var(--bg));
+    --accent-soft: color-mix(in oklch, var(--accent) 26%, transparent);
+    --fg-soft: color-mix(in oklch, var(--fg) 8%, transparent);
+    --hair: color-mix(in oklch, var(--fg) 12%, transparent);
+    --dim: color-mix(in oklch, var(--fg) 38%, var(--bg));
+    --shadow: color-mix(in oklch, var(--ink) 70%, transparent);
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; cursor: pointer; }
+  p { margin: 0; }
+  svg { display: block; }
+  .num, .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  :where(button, a, [tabindex]):focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .ic { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .ic-sm { width: 15px; height: 15px; }
+
+  /* ── 页面外壳 ── */
+  .shell { max-width: 520px; margin: 0 auto; padding: 28px 20px 56px; }
+  .shell-hd { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 26px; }
+  .shell-hd .logo { font-family: var(--font-mono); font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .shell-hd .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .tt { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border-strong); background: none; color: var(--fg); font-size: 14px; font-weight: 600; }
+  .tt:hover { background: var(--fg-soft); }
+
+  .stage { display: flex; flex-direction: column; align-items: center; }
+  .phone { width: 388px; max-width: 100%; padding: 13px; border-radius: 46px; background: var(--bezel); box-shadow: 0 26px 50px -30px var(--shadow); }
+  .screen { position: relative; width: 360px; max-width: 100%; height: 740px; border-radius: 34px; background: var(--bg); overflow: hidden; display: flex; flex-direction: column; }
+  .screen.wall { background: radial-gradient(140% 70% at 50% 0%, color-mix(in oklch, var(--accent) 16%, var(--bg)) 0%, var(--bg) 62%); }
+  @media (max-width: 440px) {
+    .phone { padding: 9px; border-radius: 36px; }
+    .screen { height: 660px; border-radius: 28px; }
+  }
+
+  .statusbar { flex: 0 0 auto; height: 30px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; font-family: var(--font-mono); font-size: 11px; color: var(--fg); }
+  .screen.wall .statusbar { color: color-mix(in oklch, var(--fg) 80%, transparent); }
+  .sb-icons { display: flex; gap: 3px; align-items: center; }
+  .sb-icons i { display: block; width: 3px; border-radius: 1px; background: currentColor; }
+  .sb-icons i:nth-child(1) { height: 5px; } .sb-icons i:nth-child(2) { height: 8px; } .sb-icons i:nth-child(3) { height: 11px; }
+  .sb-batt { width: 20px; height: 10px; border: 1px solid currentColor; border-radius: 3px; position: relative; }
+  .sb-batt::after { content: ''; position: absolute; inset: 1.5px 6px 1.5px 1.5px; background: currentColor; border-radius: 1px; }
+
+  .appbody { flex: 1 1 auto; overflow: hidden; padding: 0 22px; display: flex; flex-direction: column; min-height: 0; }
+  .appbody.nav { padding-bottom: 96px; }
+  .grow { flex: 1 1 auto; min-height: 0; }
+
+  .bar { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 12px; }
+  .bar-title { font-family: var(--font-mono); font-size: 16px; font-weight: 600; letter-spacing: -0.02em; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .iconbtn { width: 48px; height: 48px; flex: 0 0 auto; display: grid; place-items: center; border: 0; background: none; color: var(--fg); border-radius: 999px; }
+  .iconbtn:hover { background: var(--fg-soft); }
+
+  .pagetitle { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 4px 22px 16px; }
+  .page-h { font-size: 32px; font-weight: 650; letter-spacing: 0; line-height: 1.3; }
+  .addbtn { width: 48px; height: 48px; flex: 0 0 auto; display: grid; place-items: center; border: 0; border-radius: 999px; background: var(--accent); color: var(--on-accent); transition: background .15s ease; }
+  .addbtn:hover { background: var(--accent-fill-h); }
+
+  /* 悬浮胶囊导航 */
+  .pillnav { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 3; width: max-content; display: flex; align-items: center; gap: 2px; padding: 7px; border-radius: 999px; background: color-mix(in oklch, var(--surface) 92%, transparent); backdrop-filter: blur(20px); border: 1px solid var(--border); box-shadow: 0 14px 32px -14px var(--shadow); }
+  .pn { position: relative; display: flex; align-items: center; gap: 7px; height: 48px; padding: 0 15px; white-space: nowrap; border: 0; border-radius: 999px; background: none; color: var(--muted); font-size: 12px; font-weight: 650; letter-spacing: 0.01em; }
+  .pn:hover { color: var(--fg); background: var(--fg-soft); }
+  .pn.on { background: var(--raised); color: var(--fg); }
+  .pn-badge { position: absolute; top: 2px; right: 8px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--warn); color: var(--on-warn); font-family: var(--font-mono); font-size: 10px; font-weight: 700; display: grid; place-items: center; border: 2px solid var(--surface); }
+  .gesture { position: absolute; left: 50%; bottom: 7px; transform: translateX(-50%); width: 108px; height: 4px; border-radius: 999px; background: var(--dim); }
+  .screen.wall .gesture { background: color-mix(in oklch, var(--fg) 40%, transparent); }
+
+  .ttl { flex: 0 0 auto; height: 3px; background: var(--raised); }
+  .ttl > i { display: block; height: 100%; background: var(--warn); transition: width 1s linear; }
+
+  .ask { padding-top: 52px; }
+  .who { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+  .who .left { min-width: 0; overflow-wrap: anywhere; }
+  .who .clock { color: var(--warn-text); font-weight: 600; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .ask-name { font-family: var(--font-mono); font-size: 34px; font-weight: 650; line-height: 1.06; letter-spacing: -0.035em; margin: 20px 0 0; overflow-wrap: anywhere; }
+  .ask-why { font-size: 17px; line-height: 1.45; color: var(--fg); margin: 22px 0 0; }
+  .ask-target { font-family: var(--font-mono); font-size: 13px; color: var(--muted); margin: 6px 0 0; overflow-wrap: anywhere; }
+
+  .resolve { padding-bottom: 26px; }
+  .resolve-label { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .flag { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; color: var(--accent-text); }
+  .flag-warn { color: var(--warn-text); }
+  .answer { width: 100%; min-height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; border-radius: 14px; border: 1px solid var(--border-strong); background: var(--surface); text-align: left; }
+  .answer:hover { background: var(--raised); }
+  .answer-name { font-family: var(--font-mono); font-size: 15px; font-weight: 600; letter-spacing: 0; color: var(--fg); overflow-wrap: anywhere; }
+  .answer-tail { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+  .answer.matched .answer-tail { color: var(--accent-text); }
+  .answer.open { border-color: var(--warn); }
+  .answer.open .answer-name, .answer.open .answer-tail { color: var(--warn-text); }
+
+  .actions { flex: 0 0 auto; padding: 20px 22px 26px; border-top: 1px solid var(--hair); display: flex; flex-direction: column; gap: 4px; }
+  .mbtn { width: 100%; min-height: 58px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; border-radius: 15px; border: 1px solid transparent; font-size: 16px; font-weight: 650; letter-spacing: 0; transition: background .15s ease, border-color .15s ease; }
+  .mbtn-primary { background: var(--accent); color: var(--on-accent); }
+  .mbtn-primary:hover { background: var(--accent-fill-h); }
+  .mbtn-off { background: var(--raised); color: var(--muted); cursor: not-allowed; }
+  .mbtn-quiet { background: transparent; color: var(--fg); border-color: var(--border-strong); min-height: 48px; font-weight: 600; }
+  .mbtn-quiet:hover { background: var(--fg-soft); }
+  .mbtn-sm { min-height: 48px; width: auto; padding: 0 20px; font-size: 14px; }
+  .decline { min-height: 46px; display: grid; place-items: center; background: none; border: 0; color: var(--muted); font-size: 15px; font-weight: 550; border-radius: 12px; }
+  .decline:hover { color: var(--danger-text); background: var(--danger-quiet); }
+
+  .list { border-top: 1px solid var(--border); }
+  .li { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 72px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--border); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .li:hover { background: var(--fg-soft); }
+  .li-body { flex: 1 1 auto; min-width: 0; }
+  .li-name { font-family: var(--font-mono); font-size: 16px; font-weight: 600; letter-spacing: -0.02em; color: var(--fg); overflow-wrap: anywhere; }
+  .li-mask { font-family: var(--font-mono); font-size: 13px; color: var(--muted); letter-spacing: 0.14em; margin-top: 4px; }
+  .li-go { flex: 0 0 auto; color: var(--dim); }
+  .sr { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--border); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .sr:hover { background: var(--fg-soft); }
+  .sr-label { font-size: 15px; color: var(--fg); flex: 0 0 auto; }
+  .sr-value { flex: 1 1 auto; min-width: 0; text-align: right; font-family: var(--font-mono); font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+  .switch { flex: 0 0 auto; width: 46px; height: 28px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--raised); position: relative; transition: background .15s ease, border-color .15s ease; }
+  .switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 999px; background: var(--surface); box-shadow: 0 1px 3px var(--shadow); transition: transform .15s ease; }
+  .switch.on { background: var(--accent); border-color: var(--accent); }
+  .switch.on::after { transform: translateX(18px); }
+
+  .f { margin-bottom: 22px; }
+  .f-label { display: block; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 9px; }
+  .in { width: 100%; min-height: 56px; padding: 16px; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--surface); font-size: 16px; color: var(--fg); display: flex; align-items: center; overflow-wrap: anywhere; font-family: var(--font-body); }
+  .in.mono { font-family: var(--font-mono); font-size: 14px; letter-spacing: -0.01em; }
+  .in:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .in.err { border-color: var(--danger); }
+  .note { font-size: 12px; line-height: 1.5; color: var(--muted); margin: 9px 0 0; }
+  .note.err { color: var(--danger-text); font-weight: 600; }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 11px; border-radius: 999px; font-family: var(--font-mono); font-size: 12px; }
+  .chip-quiet { background: var(--raised); color: var(--muted); }
+  .chip-ok { background: var(--accent-quiet); color: var(--accent-text); }
+  .chip-warn { background: var(--warn-quiet); color: var(--warn-text); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .secret { border-radius: 16px; background: var(--surface); border: 1px solid var(--border); padding: 20px 16px; text-align: center; font-family: var(--font-mono); overflow-wrap: anywhere; }
+  .secret.masked { font-size: 22px; letter-spacing: 0.32em; color: var(--muted); line-height: 1; }
+  .secret.plain { font-size: 15px; line-height: 1.6; letter-spacing: 0.01em; color: var(--fg); text-align: left; }
+
+  .mid { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 16px; padding: 0 24px; min-height: 0; }
+  .fp { width: 132px; height: 132px; border-radius: 999px; border: 1.5px solid var(--border-strong); display: grid; place-items: center; color: var(--muted); background: none; }
+  .fp.on { border-color: var(--accent); color: var(--accent-text); box-shadow: 0 0 0 8px var(--accent-quiet); }
+  .fp.sm { width: 52px; height: 52px; flex: 0 0 auto; }
+  .big { font-size: 34px; font-weight: 650; letter-spacing: 0; line-height: 1.32; }
+
+  .scrim { position: absolute; inset: 0; background: color-mix(in oklch, var(--bg) 68%, transparent); z-index: 4; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--surface); border-radius: 28px 28px 0 0; padding: 10px 16px 30px; }
+  .sheet-grip { width: 34px; height: 4px; border-radius: 999px; background: var(--border-strong); margin: 0 auto 16px; }
+  .sheet-title { font-size: 17px; font-weight: 650; line-height: 1.4; padding: 0 6px 12px; }
+
+  .lock { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: 0 16px; min-height: 0; }
+  .lock-clock { font-size: 68px; font-weight: 300; letter-spacing: -0.045em; line-height: 1; color: var(--fg); }
+  .lock-date { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .notif { width: 100%; border-radius: 24px; padding: 14px 16px; background: color-mix(in oklch, var(--surface) 88%, transparent); border: 1px solid var(--border); backdrop-filter: blur(18px); text-align: left; color: var(--fg); font: inherit; cursor: pointer; }
+  .notif:hover { background: color-mix(in oklch, var(--surface) 96%, transparent); }
+  .notif-hd { display: flex; align-items: center; gap: 8px; font-size: 11px; font-family: var(--font-mono); color: var(--muted); margin-bottom: 8px; }
+  .notif-hd .app { color: var(--fg); font-weight: 600; }
+  .notif-title { font-size: 15px; font-weight: 650; letter-spacing: 0; margin-bottom: 4px; }
+  .notif-body { font-size: 13px; color: var(--muted); line-height: 1.45; }
+
+  .done { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; }
+  .done-mark { position: relative; width: 96px; height: 96px; display: grid; place-items: center; }
+  .done-ring { position: absolute; inset: 0; border-radius: 999px; border: 2px solid var(--accent); opacity: 0; }
+  .done-svg { width: 96px; height: 96px; fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .done-svg .c { stroke-dasharray: 166; stroke-dashoffset: 0; }
+  .done-svg .k { stroke-dasharray: 52; stroke-dashoffset: 0; }
+  .done.play .done-ring { animation: ringLoop .62s cubic-bezier(.22,.9,.28,1) both; }
+  .done.play .done-svg .c { animation: drawC .7s cubic-bezier(.2,0,0,1) both; }
+  .done.play .done-svg .k { animation: drawK .44s cubic-bezier(.2,0,0,1) .26s both; }
+  .done.play .done-txt { animation: riseLoop .44s ease-out .46s both; }
+  @keyframes ringLoop { from { transform: scale(.55); opacity: .55; } to { transform: scale(1.42); opacity: 0; } }
+  @keyframes drawC { from { stroke-dashoffset: 166; } to { stroke-dashoffset: 0; } }
+  @keyframes drawK { from { stroke-dashoffset: 52; } to { stroke-dashoffset: 0; } }
+  @keyframes riseLoop { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .done.play .done-ring, .done.play .done-svg .c, .done.play .done-svg .k, .done.play .done-txt { animation: none; }
+  }
+
+  .skel { display: flex; flex-direction: column; gap: 12px; padding: 18px 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+  .sk { display: block; height: 12px; border-radius: 6px; background: var(--raised); animation: shimmer 1.5s ease-in-out infinite; }
+  .sk.tall { height: 26px; }
+  @keyframes shimmer { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .sk { animation: none; opacity: .7; } }
+
+  .banner { display: flex; align-items: flex-start; gap: 11px; padding: 13px 14px; border-radius: 14px; background: var(--warn-quiet); border: 1px solid color-mix(in oklch, var(--warn) 34%, var(--border)); }
+  .banner-t { font-size: 13px; font-weight: 650; color: var(--warn-text); line-height: 1.4; }
+  .banner-s { font-size: 12px; color: var(--warn-text); margin-top: 3px; line-height: 1.5; }
+  .retry { flex: 0 0 auto; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid color-mix(in oklch, var(--warn) 46%, var(--border)); background: none; color: var(--warn-text); font-size: 13px; font-weight: 650; }
+  .retry:hover { background: color-mix(in oklch, var(--warn) 22%, var(--bg)); }
+
+  .toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: 96px; z-index: 6; max-width: 300px; padding: 11px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--border); color: var(--fg); font-size: 13px; font-weight: 600; box-shadow: 0 10px 24px -12px var(--shadow); }
+
+  /* ── 原型控制条（在机身之外） ── */
+  .harness { margin-top: 28px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; padding-top: 22px; border-top: 1px dashed var(--border); }
+  .harness-tag { width: 100%; text-align: center; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .hbtn { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border-strong); background: none; color: var(--fg); font-size: 13px; font-weight: 600; }
+  .hbtn:hover { background: var(--fg-soft); }
+  .hbtn.on { background: var(--warn-quiet); border-color: color-mix(in oklch, var(--warn) 46%, var(--border)); color: var(--warn-text); }
+  .hint { margin-top: 16px; text-align: center; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="shell-hd">
+    <div>
+      <div class="logo">easy-unlocker · 原型</div>
+      <div class="sub">设计真源 · 逻辑与 android/ 现有实现一致 · 数据全在内存<br />实现规格与代码落点见 android-ui-handoff.md</div>
+    </div>
+    <button class="tt" id="theme-toggle" aria-label="切换明暗主题">
+      <svg class="ic ic-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <span id="theme-label">深色</span>
+    </button>
+  </div>
+
+  <div class="stage">
+    <div class="phone">
+      <!-- 首屏静态写在这儿：不执行 JS 时（静态导出、截图、禁用脚本）看到的也是真实首屏，
+           脚本跑起来后会立刻接管并重绘。 -->
+      <div class="screen" id="screen" aria-live="polite">
+        <div class="statusbar"><span>09:41</span><span class="sb-icons"><i></i><i></i><i></i><span class="sb-batt"></span></span></div>
+        <div class="appbody"><div class="mid" style="align-items:flex-start;text-align:left;gap:22px;">
+          <svg class="ic" style="width:26px;height:26px;color:var(--accent-text);" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          <p class="big">先把恢复码落到这台手机。</p>
+          <div style="width:100%;">
+            <div class="secret plain" style="text-align:center;font-size:16px;">EASY-4K7Q-M2XR-9WPD-3HTN-8ZVF</div>
+            <p class="note">已存到 Documents/easy-unlocker-recovery.txt</p>
+          </div>
+          <p class="note" style="color:var(--warn-text);">换机时没有它，这份库打不开。它不上传、不联网。</p>
+        </div></div>
+        <div class="actions"><button class="mbtn mbtn-primary" data-act="create">指纹确认并创建</button></div>
+        <div class="gesture"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="harness">
+    <span class="harness-tag">原型控制 · 不属于产品界面</span>
+    <button class="hbtn" id="h-push">模拟 Agent 请求</button>
+    <button class="hbtn" id="h-offline">模拟断网</button>
+    <button class="hbtn" id="h-reset">重置</button>
+  </div>
+  <p class="hint">先「模拟 Agent 请求」收到推送，点通知 → 指纹 → 手选条目 → 放行。</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ─── 状态 ──────────────────────────────────────────────────────── */
+  var SEED = [
+    { id: 'i1', name: 'OPENAI_API_KEY',     aliases: ['agent-openai'],  secret: 'sk-proj-demo0001' },
+    { id: 'i2', name: 'ANTHROPIC_API_KEY',  aliases: [],                secret: 'sk-ant-demo0002' },
+    { id: 'i3', name: 'GITHUB_DEPLOY_TOKEN',aliases: ['gh-token'],      secret: 'ghp_demo0003' },
+    { id: 'i4', name: 'SLACK_BOT_TOKEN',    aliases: [],                secret: 'xoxb-demo-0004' },
+    { id: 'i5', name: 'STRIPE_SECRET_KEY',  aliases: [],                secret: 'sk_live_demo0005' }
+  ];
+  var INCOMING = [
+    { item: 'OPENAI_API_KEY',  purpose: '登录 dev-server 修 my-service', target: '/opt/app/.env', requester: 'agent@dev-server' },
+    { item: 'GITHUB_DEPLOY_TOKEN', purpose: '重新拉取私有仓库',          target: '/opt/app/.env', requester: 'agent@build-runner' },
+    { item: 'OPENAI_KEY',      purpose: '换 key 后重启 my-service',      target: '/opt/app/.env', requester: 'agent@dev-server' },
+    { item: 'STRIPE_SECRET_KEY', purpose: '对账脚本需要读交易',          target: '/srv/billing/.env', requester: 'agent@billing-01' }
+  ];
+
+  var S, seq, n = 0;
+
+  function fresh() {
+    return {
+      theme: document.documentElement.dataset.theme || 'light',
+      route: 'setup',
+      hasVault: false, locked: true,
+      recovery: 'EASY-4K7Q-M2XR-9WPD-3HTN-8ZVF',
+      items: [], pending: [], revealId: null,
+      sheet: null, toast: '', menuFor: null,
+      editing: null, form: { name: '', secret: '' }, formError: '',
+      loading: false, offline: false,
+      remember: true, haptics: true, sound: true,
+      broker: 'broker.example.com', device: 'android', paired: true,
+      lastSync: '09:38'
+    };
+  }
+
+  function reset(keepTheme) {
+    var t = S ? S.theme : 'light';
+    S = fresh();
+    S.items = SEED.map(function (x) { return { id: x.id, name: x.name, aliases: x.aliases.slice(), secret: x.secret }; });
+    seq = 0; n = 0;
+    if (keepTheme) setTheme(t);
+    render();
+  }
+
+  /* ─── 工具 ──────────────────────────────────────────────────────── */
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function pad(x) { return (x < 10 ? '0' : '') + x; }
+  function allNames(it) { return [it.name.toLowerCase()].concat(it.aliases.map(function (a) { return a.toLowerCase(); })); }
+  function matchItem(requestName) {
+    var q = String(requestName).toLowerCase(), hit = null;
+    S.items.forEach(function (it) { if (allNames(it).indexOf(q) >= 0) hit = it; });
+    return hit;
+  }
+  function byId(id) { var r = null; S.items.forEach(function (x) { if (x.id === id) r = x; }); return r; }
+  function nameTaken(name, exceptId) {
+    var q = name.trim().toLowerCase(), bad = false;
+    S.items.forEach(function (it) { if (it.id !== exceptId && allNames(it).indexOf(q) >= 0) bad = true; });
+    return bad;
+  }
+  function toast(msg) { S.toast = msg; render(); setTimeout(function () { if (S.toast === msg) { S.toast = ''; render(); } }, 1800); }
+
+  /* ─── 反馈：双脉冲震动 + 双音确认 ───────────────────────────────── */
+  function buzz() { if (S.haptics && navigator.vibrate) { try { navigator.vibrate([24, 70, 46]); } catch (e) {} } }
+  var actx = null;
+  function chime() {
+    if (!S.sound) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      actx = actx || new AC();
+      var t = actx.currentTime;
+      [880, 1318.5].forEach(function (f, i) {
+        var o = actx.createOscillator(), g = actx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        var at = t + i * 0.09;
+        g.gain.setValueAtTime(0, at);
+        g.gain.linearRampToValueAtTime(0.14, at + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + 0.28);
+        o.connect(g); g.connect(actx.destination);
+        o.start(at); o.stop(at + 0.3);
+      });
+    } catch (e) {}
+  }
+
+  /* ─── 生物识别弹层 ──────────────────────────────────────────────── */
+  function biometric(title, onOk) { S.sheet = { type: 'bio', title: title, onOk: onOk }; render(); }
+  function closeSheet() { S.sheet = null; render(); }
+
+  /* ─── 渲染 ──────────────────────────────────────────────────────── */
+  function statusbar() {
+    return '<div class="statusbar"><span>09:41</span><span class="sb-icons"><i></i><i></i><i></i><span class="sb-batt"></span></span></div>';
+  }
+  function gesture() { return '<div class="gesture"></div>'; }
+  function navHTML(active) {
+    function item(key, label, icon) {
+      var badge = (key === 'pending' && S.pending.length) ? '<span class="pn-badge">' + S.pending.length + '</span>' : '';
+      return '<button class="pn' + (active === key ? ' on' : '') + '" data-act="tab" data-tab="' + key + '">' + badge + icon + label + '</button>';
+    }
+    var iKey = '<svg class="ic ic-sm" viewBox="0 0 24 24"><circle cx="15" cy="9" r="3.5"/><path d="M12.6 11.4 4 20v-3h3v-3h3"/></svg>';
+    var iBell = '<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-1.5 2h15z"/><path d="M10 21h4"/></svg>';
+    var iGear = '<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="17" r="2"/></svg>';
+    return '<nav class="pillnav">' + item('vault', '条目', iKey) + item('pending', '待批准', iBell) + item('settings', '设置', iGear) + '</nav>';
+  }
+  function sheetHTML() {
+    if (!S.sheet) return '';
+    var s = S.sheet, inner = '';
+    if (s.type === 'bio') {
+      inner = '<div class="sheet-grip"></div><div style="display:flex;gap:14px;align-items:flex-start;">' +
+        '<button class="fp on sm" data-act="bio-ok" aria-label="指纹确认"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4a8 8 0 0 0-8 8v2M20 12a8 8 0 0 0-8-8M12 8a4 4 0 0 0-4 4v4M16 12a4 4 0 0 0-4-4M12 12v6"/></svg></button>' +
+        '<div style="flex:1 1 auto;"><div class="sheet-title" style="padding:0 0 4px;">' + esc(s.title) + '</div>' +
+        '<p class="note" style="margin:0;">点指纹确认。认证只在本机完成，指纹不会离开手机。</p></div></div>' +
+        '<div style="height:20px"></div><button class="mbtn mbtn-quiet" data-act="sheet-close">取消</button>';
+    } else if (s.type === 'picker') {
+      inner = '<div class="sheet-grip"></div><div class="sheet-title">放出哪一条</div><div class="list" style="border-top:0;">';
+      S.items.forEach(function (it) {
+        var alias = it.aliases.length ? '<div class="chips" style="margin-top:6px;"><span class="chip chip-quiet">别名 ' + esc(it.aliases[0]) + '</span></div>' : '';
+        inner += '<button class="li" style="min-height:60px;" data-act="choose" data-id="' + it.id + '">' +
+          '<div class="li-body"><div class="li-name">' + esc(it.name) + '</div><div class="li-mask">••••••••</div>' + alias + '</div></button>';
+      });
+      inner += '</div>';
+    } else if (s.type === 'menu') {
+      inner = '<div class="sheet-grip"></div><div class="sheet-title">条目操作</div><div class="list" style="border-top:0;">' +
+        '<button class="li" style="min-height:60px;" data-act="edit" data-id="' + s.id + '"><div class="li-body"><div class="li-name" style="font-size:15px;">编辑名称与密钥</div></div></button>' +
+        '<button class="li" style="min-height:60px;border-bottom:0;" data-act="ask-delete" data-id="' + s.id + '"><div class="li-body"><div class="li-name" style="font-size:15px;color:var(--danger-text);">删除这条凭据</div></div></button>' +
+        '</div>';
+    } else if (s.type === 'confirm') {
+      inner = '<div class="sheet-grip"></div><div class="sheet-title">删除 ' + esc(s.name) + '？</div>' +
+        '<p class="note" style="margin:0 6px 18px;">删除后无法撤销。恢复只能靠密文备份 + 恢复码。</p>' +
+        '<button class="mbtn" style="background:var(--danger);color:var(--on-danger);" data-act="do-delete" data-id="' + s.id + '">删除</button>' +
+        '<div style="height:10px"></div><button class="mbtn mbtn-quiet" data-act="sheet-close">取消</button>';
+    }
+    return '<div class="scrim" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true">' + inner + '</div>';
+  }
+
+  var VIEW = {};
+
+  VIEW.setup = function () {
+    return statusbar() + '<div class="appbody"><div class="mid" style="align-items:flex-start;text-align:left;gap:22px;">' +
+      '<svg class="ic" style="width:26px;height:26px;color:var(--accent-text);" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>' +
+      '<p class="big">先把恢复码落到这台手机。</p>' +
+      '<div style="width:100%;"><div class="secret plain" style="text-align:center;font-size:16px;">' + esc(S.recovery) + '</div>' +
+      '<p class="note">已存到 Documents/easy-unlocker-recovery.txt</p></div>' +
+      '<p class="note" style="color:var(--warn-text);">换机时没有它，这份库打不开。它不上传、不联网。</p>' +
+      '</div></div>' +
+      '<div class="actions"><button class="mbtn mbtn-primary" data-act="create">指纹确认并创建</button></div>' + gesture();
+  };
+
+  VIEW.lockscreen = function () {
+    return statusbar() + '<div class="lock">' +
+      '<div style="text-align:center;"><p class="lock-clock">09:41</p><p class="lock-date">9月14日 星期一</p></div>' +
+      '<button class="notif" data-act="open-notif">' +
+      '<div class="notif-hd"><svg class="ic ic-sm" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg><span class="app">easy-unlocker</span><span style="margin-left:auto;">刚刚</span></div>' +
+      '<div class="notif-title">有 ' + S.pending.length + ' 条凭据请求等待批准</div>' +
+      '<div class="notif-body">打开 App，用指纹确认后放行。</div></button>' +
+      '</div>' + gesture();
+  };
+
+  VIEW.unlock = function () {
+    var has = S.pending.length;
+    return statusbar() + '<div class="appbody"><div class="mid">' +
+      '<div class="fp on"><svg class="ic" style="width:52px;height:52px;" viewBox="0 0 24 24"><path d="M12 4a8 8 0 0 0-8 8v2M20 12a8 8 0 0 0-8-8M12 8a4 4 0 0 0-4 4v4M16 12a4 4 0 0 0-4-4M12 12v6"/></svg></div>' +
+      '<p class="big" style="margin-top:10px;">' + (has ? '有 ' + has + ' 条请求在等你' : '库已锁上') + '</p>' +
+      (has ? '<p class="mono" style="font-size:13px;color:var(--muted);">' + esc(S.pending.map(function (p) { return p.item; }).join(' · ')) + '</p>' : '') +
+      '</div></div>' +
+      '<div class="actions"><button class="mbtn mbtn-primary" data-act="unlock">指纹解锁</button><button class="decline" data-act="use-recovery">用恢复码</button></div>' + gesture();
+  };
+
+  VIEW.vault = function () {
+    var body;
+    if (S.loading) {
+      body = '<div class="skel"><span class="sk" style="width:42%"></span><span class="sk tall" style="width:72%"></span><span class="sk" style="width:56%"></span></div>' +
+        '<p class="note" style="text-align:center;margin-top:22px;">正在连接 ' + esc(S.broker) + '</p>';
+    } else if (!S.items.length) {
+      body = '<div class="mid" style="gap:14px;">' +
+        '<svg class="ic" style="width:30px;height:30px;color:var(--dim);" viewBox="0 0 24 24"><circle cx="15" cy="9" r="3.5"/><path d="M12.6 11.4 4 20v-3h3v-3h3"/></svg>' +
+        '<p class="big" style="font-size:20px;">还没有条目</p>' +
+        '<p class="note" style="max-width:26ch;">贴一条 Agent 要用的密钥。请求到来时你再手选批准。</p>' +
+        '<button class="mbtn mbtn-quiet mbtn-sm" data-act="add" style="margin-top:4px;">添加条目</button></div>';
+    } else {
+      body = '<div class="list">';
+      S.items.forEach(function (it, i) {
+        var last = i === S.items.length - 1;
+        body += '<button class="li"' + (last ? ' style="border-bottom:0;"' : '') + ' data-act="open" data-id="' + it.id + '">' +
+          '<div class="li-body"><div class="li-name">' + esc(it.name) + '</div><div class="li-mask">••••••••</div></div>' +
+          '<svg class="ic ic-sm li-go" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>';
+      });
+      body += '</div>';
+    }
+    return statusbar() +
+      '<div class="pagetitle"><p class="page-h">条目</p><button class="addbtn" data-act="add" aria-label="添加条目"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>' +
+      '<div class="appbody nav">' + body + '</div>' + navHTML('vault') + gesture();
+  };
+
+  VIEW.item = function () {
+    var it = byId(S.openId) || S.items[0];
+    if (!it) return VIEW.vault();
+    var revealed = S.revealId === it.id;
+    var secretBlock = revealed
+      ? '<div class="secret plain" style="width:100%;">' + esc(it.secret) + '</div><p class="note" style="margin:0;">已开启截屏遮挡</p>'
+      : '<div class="secret masked">••••••••••</div><p class="note" style="margin:0;">后台锁上后需要重新认证</p>';
+    var actions = revealed
+      ? '<button class="mbtn mbtn-quiet" data-act="copy"><svg class="ic ic-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>复制 · 30 秒后清空</button>'
+      : '<button class="mbtn mbtn-primary" data-act="reveal" data-id="' + it.id + '">指纹查看明文</button>';
+    var aliases = it.aliases.length
+      ? '<div class="chips" style="padding-top:10px;">' + it.aliases.map(function (a) { return '<span class="chip chip-quiet">别名 ' + esc(a) + '</span>'; }).join('') + '</div>'
+      : '';
+    return statusbar() +
+      '<div class="bar"><button class="iconbtn" data-act="back" aria-label="返回"><svg class="ic" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>' +
+      '<span class="bar-title">' + esc(it.name) + '</span>' +
+      '<button class="iconbtn" data-act="menu" data-id="' + it.id + '" aria-label="更多操作"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg></button></div>' +
+      '<div class="appbody">' + aliases + '<div class="mid" style="gap:20px;padding:0;">' + secretBlock + '</div></div>' +
+      '<div class="actions">' + actions + '</div>' + gesture();
+  };
+
+  VIEW.edit = function () {
+    var isNew = !S.editing;
+    return statusbar() +
+      '<div class="bar"><button class="iconbtn" data-act="cancel-edit" aria-label="取消"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>' +
+      '<span class="bar-title">' + (isNew ? '添加条目' : '编辑条目') + '</span></div>' +
+      '<div class="appbody"><div style="padding-top:14px;">' +
+      '<div class="f"><label class="f-label" for="f-name">名称</label>' +
+      '<input class="in mono' + (S.formError ? ' err' : '') + '" id="f-name" data-field="name" value="' + esc(S.form.name) + '" autocomplete="off" spellcheck="false" placeholder="OPENAI_API_KEY" /></div>' +
+      '<div class="f"><label class="f-label" for="f-secret">密钥</label>' +
+      '<input class="in mono' + (S.formError ? ' err' : '') + '" id="f-secret" data-field="secret" value="' + esc(S.form.secret) + '" autocomplete="off" spellcheck="false" placeholder="粘贴密钥" /></div>' +
+      (S.formError ? '<p class="note err" role="alert">' + esc(S.formError) + '</p>' : '<p class="note">和 ask 里的请求名可以不同，审批时手选对齐。</p>') +
+      '</div></div>' +
+      '<div class="actions"><button class="mbtn mbtn-primary" data-act="save">保存</button></div>' + gesture();
+  };
+
+  VIEW.pending = function () {
+    if (S.loading) {
+      return statusbar() + '<div class="pagetitle"><p class="page-h">待批准</p></div>' +
+        '<div class="appbody nav"><div class="skel"><span class="sk" style="width:42%"></span><span class="sk tall" style="width:72%"></span><span class="sk" style="width:56%"></span></div>' +
+        '<p class="note" style="text-align:center;margin-top:22px;">正在连接 ' + esc(S.broker) + '</p></div>' + navHTML('pending') + gesture();
+    }
+    var banner = S.offline
+      ? '<div class="banner"><svg class="ic ic-sm" style="color:var(--warn-text);flex:0 0 auto;margin-top:2px;" viewBox="0 0 24 24"><path d="M12 4 3 19h18z"/><path d="M12 10v4M12 17h.01"/></svg>' +
+        '<div style="flex:1 1 auto;min-width:0;"><p class="banner-t">连接中断</p><p class="banner-s">最后一次同步 ' + esc(S.lastSync) + ' · 正在自动重试</p></div>' +
+        '<button class="retry" data-act="retry">重试</button></div>'
+      : '';
+    var head = '<div class="pagetitle"><p class="page-h">待批准</p></div>';
+
+    if (!S.pending.length) {
+      return statusbar() + head + '<div class="appbody nav">' + banner +
+        '<div class="mid" style="gap:14px;">' +
+        '<svg class="ic" style="width:28px;height:28px;color:var(--dim);" viewBox="0 0 24 24"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-1.5 2h15z"/><path d="M10 21h4"/></svg>' +
+        '<p class="note" style="max-width:28ch;">没有等待你的请求。App 开着时新的请求会自动出现在这里。</p></div></div>' + navHTML('pending') + gesture();
+    }
+
+    var req = S.pending[0];
+    // 选中项挂在请求自己身上：队列里有多条时，全局选中项会和「当前显示哪一条」对不上
+    var chosen = byId(req.sel);
+    var pct = Math.max(6, Math.round((req.ttl / req.ttl0) * 100));
+    var answer, flag, cls, disabled = false;
+
+    if (chosen) {
+      var exact = allNames(chosen).indexOf(String(req.item).toLowerCase()) >= 0;
+      answer = esc(chosen.name); flag = exact ? '完全匹配' : '已手选'; cls = 'matched';
+    } else {
+      answer = '没有完全匹配的条目'; flag = '需要你指定'; cls = 'open'; disabled = true;
+    }
+
+    var remember = '';
+    if (chosen && chosen.name.toLowerCase() !== String(req.item).toLowerCase()) {
+      remember = '<button class="sr" style="border-bottom:0;min-height:52px;" data-act="toggle-remember" aria-pressed="' + S.remember + '">' +
+        '<span class="switch' + (S.remember ? ' on' : '') + '" aria-hidden="true"></span>' +
+        '<span style="flex:1 1 auto;font-size:13px;">把 <span class="mono">' + esc(req.item) + '</span> 记成这个名字的别名</span></button>';
+    }
+
+    var rows = S.items.length ? '' :
+      '<p class="note" style="margin-top:16px;">库里还没有条目，先去添加一条再回来。</p>';
+
+    return statusbar() +
+      '<div class="ttl"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="appbody nav"><div class="ask">' +
+      '<div class="who"><span class="left">' + esc(req.requester) + ' 想取走</span><span class="clock">' + fmt(req.ttl) + '</span></div>' +
+      '<p class="ask-name">' + esc(req.item) + '</p>' +
+      '<p class="ask-why">' + esc(req.purpose) + '</p>' +
+      '<p class="ask-target">写入 ' + esc(req.target) + '</p>' +
+      '</div><div class="grow"></div><div class="resolve">' +
+      '<div class="resolve-label"><span class="label">放出这一条</span><span class="flag' + (cls === 'open' ? ' flag-warn' : '') + '">' + flag + '</span></div>' +
+      '<button class="answer ' + cls + '" data-act="change">' +
+      '<span class="answer-name">' + answer + '</span>' +
+      '<span class="answer-tail">' + (chosen ? '改' : '选择') + '<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span></button>' +
+      // 上面这一行同时承担「改选」和「去选择」两个入口，所以两种情况都开同一个弹层
+      rows + remember + '</div></div>' +
+      '<div class="actions">' +
+      '<button class="mbtn ' + (disabled ? 'mbtn-off' : 'mbtn-primary') + '" data-act="approve"' + (disabled ? ' disabled' : '') + '>批准并放出</button>' +
+      '<button class="decline" data-act="deny">拒绝这次请求</button></div>' + navHTML('pending') + gesture();
+  };
+  function fmt(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + pad(s % 60); }
+
+  VIEW.done = function () {
+    var req = S.lastReq || { item: '—', requester: 'agent@dev-server' };
+    return statusbar() + '<div class="appbody"><div class="mid"><div class="done play">' +
+      '<div class="done-mark"><span class="done-ring"></span>' +
+      '<svg class="done-svg" viewBox="0 0 96 96"><circle class="c" cx="48" cy="48" r="26"/><path class="k" d="m32 49 11 11L65 36"/></svg></div>' +
+      '<div class="done-txt"><p class="big">已放行</p>' +
+      '<p class="mono" style="font-size:13px;color:var(--muted);margin-top:9px;">' + esc(req.item) + ' → ' + esc(req.requester) + '</p>' +
+      '<p class="note" style="margin:13px auto 0;max-width:28ch;">值已用本次 ask 的临时公钥密封，Broker 只转发、解不开。</p></div>' +
+      '</div></div></div>' +
+      '<div class="actions"><button class="mbtn mbtn-quiet" data-act="back-vault">返回条目</button></div>' + gesture();
+  };
+
+  VIEW.settings = function () {
+    function row(act, label, value, attrs) {
+      return '<button class="sr" ' + (attrs || '') + ' data-act="' + act + '"><span class="sr-label">' + label + '</span>' +
+        (value ? '<span class="sr-value">' + value + '</span>' : '') +
+        '<svg class="ic ic-sm li-go" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>';
+    }
+    function toggle(act, label, on) {
+      return '<button class="sr" data-act="' + act + '" aria-pressed="' + on + '"><span class="sr-label">' + label + '</span>' +
+        '<span style="flex:1 1 auto;"></span><span class="switch' + (on ? ' on' : '') + '" aria-hidden="true"></span></button>';
+    }
+    return statusbar() + '<div class="pagetitle"><p class="page-h">设置</p></div>' +
+      '<div class="appbody nav"><div class="list">' +
+      row('noop', '配对', esc(S.broker) + (S.paired ? ' · 已配对' : '')) +
+      row('noop', '设备', esc(S.device)) +
+      row('export', '导出密文备份', '上次 9月13日') +
+      toggle('toggle-haptics', '放行时震动', S.haptics) +
+      toggle('toggle-sound', '放行时提示音', S.sound) +
+      row('noop', '推送', 'FCM', 'style="border-bottom:0;"') +
+      '</div><div class="grow"></div>' +
+      '<p class="note mono" style="font-size:11px;margin-bottom:22px;">恢复码 Documents/easy-unlocker-recovery.txt</p></div>' +
+      navHTML('settings') + gesture();
+  };
+
+  /* ─── 渲染入口 ──────────────────────────────────────────────────── */
+  function render() {
+    var el = document.getElementById('screen');
+    var wall = S.route === 'lockscreen' || (S.route === 'unlock' && false);
+    el.className = 'screen' + (wall ? ' wall' : '');
+    var html = (VIEW[S.route] || VIEW.vault)();
+    var toast = S.toast ? '<div class="toast" role="status">' + esc(S.toast) + '</div>' : '';
+    el.innerHTML = html + toast + sheetHTML();
+    if (S.route === 'edit' && !S.editing) {
+      var inp = el.querySelector('[data-field="name"]');
+      if (inp) { try { inp.focus(); } catch (e) {} }
+    }
+  }
+
+  /* ─── 事件委托 ──────────────────────────────────────────────────── */
+  document.getElementById('screen').addEventListener('click', function (e) {
+    var t = e.target.closest('[data-act]');
+    if (!t) return;
+    var act = t.getAttribute('data-act');
+    var id = t.getAttribute('data-id');
+
+    if (act === 'tab') {
+      var tab = t.getAttribute('data-tab');
+      if (tab === 'pending' && S.locked) { S.route = 'unlock'; render(); return; }
+      S.route = tab;
+      if (tab === 'pending') { S.loading = true; render(); setTimeout(function () { S.loading = false; if (S.route === 'pending') render(); }, 420); return; }
+      render(); return;
+    }
+    if (act === 'create') { biometric('创建保险库', function () { S.hasVault = true; S.locked = false; S.route = 'vault'; toast('保险库已创建'); }); return; }
+    if (act === 'unlock') { biometric('指纹解锁', function () { S.locked = false; S.route = S.pending.length ? 'pending' : 'vault'; render(); }); return; }
+    if (act === 'use-recovery') { toast('恢复码路径见设置'); return; }
+    if (act === 'open-notif') { biometric('批准这次请求', function () { S.locked = false; S.route = 'pending'; render(); }); return; }
+    if (act === 'bio-ok') { var cb = S.sheet && S.sheet.onOk; S.sheet = null; if (cb) cb(); render(); return; }
+    if (act === 'sheet-close') { closeSheet(); return; }
+    if (act === 'open') { S.openId = id; S.revealId = null; S.route = 'item'; render(); return; }
+    if (act === 'back' || act === 'back-vault') { S.route = 'vault'; S.revealId = null; render(); return; }
+    if (act === 'reveal') { biometric('查看凭据', function () { S.revealId = id; render(); }); return; }
+    if (act === 'copy') { toast('已复制 · 30 秒后清空剪贴板'); return; }
+    if (act === 'menu') { S.sheet = { type: 'menu', id: id }; render(); return; }
+    if (act === 'edit') { var it = byId(id); S.editing = id; S.form = { name: it.name, secret: it.secret }; S.formError = ''; S.sheet = null; S.route = 'edit'; render(); return; }
+    if (act === 'ask-delete') { var d = byId(id); S.sheet = { type: 'confirm', id: id, name: d.name }; render(); return; }
+    if (act === 'do-delete') {
+      S.items = S.items.filter(function (x) { return x.id !== id; });
+      S.sheet = null; S.route = 'vault'; toast('已删除'); return;
+    }
+    if (act === 'add') { S.editing = null; S.form = { name: '', secret: '' }; S.formError = ''; S.route = 'edit'; render(); return; }
+    if (act === 'cancel-edit') { S.route = 'vault'; S.formError = ''; render(); return; }
+    if (act === 'save') {
+      var name = S.form.name.trim(), sec = S.form.secret.trim();
+      if (!name) { S.formError = '给它一个名称。'; render(); return; }
+      if (!sec) { S.formError = '密钥不能为空。'; render(); return; }
+      if (!/^[A-Za-z0-9_.\-]+$/.test(name)) { S.formError = '名称只用字母、数字、下划线、点和连字符。'; render(); return; }
+      if (nameTaken(name, S.editing)) { S.formError = '这个名称或别名已经存在，库内必须唯一。'; render(); return; }
+      if (S.editing) {
+        var tgt = byId(S.editing);
+        tgt.name = name; tgt.secret = sec;
+        S.openId = tgt.id; S.route = 'item'; toast('已保存');
+      } else {
+        S.items.push({ id: 'i' + (++n) + '_' + S.items.length, name: name, aliases: [], secret: sec });
+        S.route = 'vault'; toast('已添加');
+      }
+      S.formError = ''; return;
+    }
+    if (act === 'change' || act === 'choose') {
+      if (act === 'choose') { if (S.pending[0]) S.pending[0].sel = id; S.sheet = null; render(); return; }
+      S.sheet = { type: 'picker' }; render(); return;
+    }
+    if (act === 'toggle-remember') { S.remember = !S.remember; render(); return; }
+    if (act === 'approve') {
+      var req = S.pending[0]; if (!req) return;
+      var chosen = byId(req.sel); if (!chosen) { toast('请先选一条凭据'); return; }
+      if (S.remember && chosen.name.toLowerCase() !== String(req.item).toLowerCase() && allNames(chosen).indexOf(String(req.item).toLowerCase()) < 0) {
+        chosen.aliases.push(req.item);
+      }
+      S.lastReq = { item: chosen.name, requester: req.requester };
+      S.pending.shift();
+      S.route = 'done';
+      buzz(); chime();
+      render();
+      setTimeout(function () { if (S.route === 'done') { S.route = 'vault'; render(); } }, 1800);
+      return;
+    }
+    if (act === 'deny') { S.pending.shift(); S.route = 'vault'; toast('已拒绝'); return; }
+    if (act === 'retry') { S.offline = false; S.loading = true; render(); setTimeout(function () { S.loading = false; S.lastSync = '09:41'; render(); }, 700); return; }
+    if (act === 'export') { toast('已生成密文备份 · 需要恢复码才能解开'); return; }
+    if (act === 'toggle-haptics') { S.haptics = !S.haptics; render(); return; }
+    if (act === 'toggle-sound') { S.sound = !S.sound; if (S.sound) chime(); render(); return; }
+    if (act === 'noop') { return; }
+  });
+
+  document.getElementById('screen').addEventListener('input', function (e) {
+    var f = e.target.getAttribute && e.target.getAttribute('data-field');
+    if (!f) return;
+    S.form[f] = e.target.value;
+    // 直接改 DOM 清错误态，不整体重渲染——重渲染会把输入焦点踢掉
+    if (S.formError) {
+      S.formError = '';
+      var el = document.getElementById('screen');
+      Array.prototype.forEach.call(el.querySelectorAll('.in.err'), function (x) { x.classList.remove('err'); });
+      var msg = el.querySelector('.note.err');
+      if (msg) { msg.className = 'note'; msg.removeAttribute('role'); msg.textContent = '和 ask 里的请求名可以不同，审批时手选对齐。'; }
+    }
+  });
+
+  /* ─── 原型控制 ──────────────────────────────────────────────────── */
+  var btnPush = document.getElementById('h-push');
+  var btnOffline = document.getElementById('h-offline');
+  var btnReset = document.getElementById('h-reset');
+
+  btnPush.addEventListener('click', function () {
+    var src = INCOMING[seq % INCOMING.length]; seq++;
+    var ttl = 300;
+    var hit = matchItem(src.item);
+    S.pending.push({ item: src.item, purpose: src.purpose, target: src.target, requester: src.requester, ttl: ttl, ttl0: ttl, sel: hit ? hit.id : null });
+    if (S.locked) { S.route = 'lockscreen'; render(); }
+    else { S.route = 'pending'; S.loading = true; render(); setTimeout(function () { S.loading = false; if (S.route === 'pending') render(); }, 420); }
+  });
+  btnOffline.addEventListener('click', function () {
+    S.offline = !S.offline;
+    btnOffline.classList.toggle('on', S.offline);
+    btnOffline.textContent = S.offline ? '恢复联网' : '模拟断网';
+    // 断网态挂在待批准屏上；锁着的时候不能直接跳过去，那等于绕过指纹
+    if (S.locked) { toast(S.offline ? '已断网 · 解锁后会看到' : '已恢复联网'); }
+    else { S.route = 'pending'; render(); }
+  });
+  btnReset.addEventListener('click', function () {
+    btnOffline.classList.remove('on');
+    btnOffline.textContent = '模拟断网';
+    reset(true);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && S.sheet) closeSheet();
+  });
+
+  /* ─── 主题 ──────────────────────────────────────────────────────── */
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    S.theme = t;
+    var l = document.getElementById('theme-label');
+    if (l) l.textContent = t === 'dark' ? '浅色' : '深色';
+  }
+  (function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem('eul-proto-theme'); } catch (e) {}
+    if (!saved) {
+      saved = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = saved;
+  })();
+  document.getElementById('theme-toggle').addEventListener('click', function () {
+    var next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    try { localStorage.setItem('eul-proto-theme', next); } catch (e) {}
+  });
+
+  /* ─── 计时：TTL 倒计时 ──────────────────────────────────────────── */
+  setInterval(function () {
+    if (S.route !== 'pending' || S.loading || !S.pending.length) return;
+    var r = S.pending[0];
+    r.ttl -= 1;
+    if (r.ttl <= 0) {
+      S.pending.shift(); S.route = 'vault';
+      toast('请求已超时 · 按拒绝处理');
+      return;
+    }
+    var clock = document.querySelector('.who .clock');
+    if (clock) clock.textContent = fmt(r.ttl);
+    var bar = document.querySelector('.ttl > i');
+    if (bar) bar.style.width = Math.max(6, Math.round((r.ttl / r.ttl0) * 100)) + '%';
+  }, 1000);
+
+  reset(false);
+  setTheme(S.theme);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+name = "easy-unlocker-broker"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+workers_dev = true
+
+# 默认用 workers.dev 子域即可；要绑自定义域名见 docs/DEPLOY.md。
+
+[durable_objects]
+bindings = [{ name = "BROKER", class_name = "BrokerState" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["BrokerState"]
+
+[vars]
+# 非敏感默认值；敏感值用 wrangler secret put 注入（见 README）
+MAX_TTL_SECONDS = "3600"
+MAX_WAIT_MS = "300000"
+# 最近一次 release 的 tag，/v1/version 报给 CLI 做更新提示。发版后改成新 tag 再 wrangler deploy；
+# 不改则 worker 报空串，CLI 跳过更新检查（不影响功能）。
+# CLI_VERSION = "v2026.09.16"

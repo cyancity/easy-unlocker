@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>待批准 · easy-unlocker</title>
+<link rel="stylesheet" href="screen.css" />
+<style>
+  /* Face ID overlay */
+  .faceid {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(0,0,0,.45);
+    display: grid; place-items: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity var(--motion-base) var(--ease-standard);
+  }
+  .faceid.show { opacity: 1; pointer-events: auto; }
+  .faceid-card {
+    width: 148px; padding: 26px 0 20px;
+    background: var(--bg); border-radius: var(--radius-lg);
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    box-shadow: var(--elev-raised);
+    transform: scale(.92);
+    transition: transform var(--motion-base) var(--ease-standard);
+  }
+  .faceid.show .faceid-card { transform: scale(1); }
+  .faceid-card svg { width: 52px; height: 52px; stroke: var(--fg); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .faceid-card span { font-size: var(--text-sm); color: var(--muted); }
+
+  /* result views */
+  .result { flex: 1; display: none; flex-direction: column; }
+  .result.show { display: flex; }
+  .result-body {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 0 32px; text-align: center; gap: 0;
+  }
+  .result-ring {
+    width: 96px; height: 96px; border-radius: 50%;
+    display: grid; place-items: center; margin-bottom: 22px;
+  }
+  .result-ring.ok { background: color-mix(in oklab, var(--success) 10%, var(--bg)); }
+  .result-ring.bad { background: color-mix(in oklab, var(--danger) 8%, var(--bg)); }
+  .result-ring svg { width: 96px; height: 96px; }
+  .result h2 { font-family: var(--font-display); font-size: 34px; font-weight: 700; letter-spacing: var(--tracking-display); margin: 0; }
+  .result .r-route { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--muted); margin-top: 10px; }
+  .result .r-note { font-size: var(--text-sm); color: var(--muted); line-height: 1.5; margin-top: 12px; max-width: 30ch; }
+
+  .pw-row { display: none; gap: 8px; }
+  .pw-row.show { display: flex; }
+  .pw-row input {
+    flex: 1; min-height: 44px; padding: 0 14px;
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    font: inherit; font-size: var(--text-base); background: var(--bg); color: var(--fg);
+    min-width: 0;
+  }
+  .pw-row .btn-quiet { width: auto; padding: 0 18px; flex: 0 0 auto; background: var(--bg); border: 1px solid var(--border); }
+
+  .alias-row { display: none; }
+  .alias-row.show { display: block; }
+
+  .actions .btn-tinted[disabled] { opacity: .45; }
+</style>
+</head>
+<body>
+
+  <!-- ─── 大标题导航 ─── -->
+  <div class="nav" data-od-id="nav">
+    <div class="nav-large-row">
+      <h1 class="nav-large">待批准</h1>
+      <span class="chip">网关 dev-server</span>
+    </div>
+  </div>
+
+  <div class="scroll" id="reqView" data-od-id="content">
+    <!-- ─── 请求卡：谁 · 要什么 · 为什么 · 怎么调 ─── -->
+    <section class="req-card" data-od-id="req-card">
+      <div class="req-head">
+        <div class="req-dev" aria-hidden>
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7.5 9.5l3 2.5-3 2.5"/><path d="M12.5 15h4"/></svg>
+        </div>
+        <div class="req-who">
+          <div class="who-name">dev-laptop</div>
+          <div class="who-sub">正在请求一条凭据</div>
+        </div>
+        <div class="ttl-ring" data-od-id="ttl-ring" role="timer" aria-label="剩余时间">
+          <svg viewBox="0 0 46 46" aria-hidden>
+            <circle class="r-bg" cx="23" cy="23" r="18"/>
+            <circle class="r-fg" cx="23" cy="23" r="18" id="ringFg"/>
+          </svg>
+          <span class="ttl-num" id="ttl">1:24</span>
+        </div>
+      </div>
+
+      <div class="req-name" data-od-id="req-item">OPENAI_API_KEY</div>
+
+      <div class="req-field">
+        <div class="req-flabel">用途</div>
+        <p class="req-fval">给 codex 批量跑 review 注入 env，预计 20 分钟。</p>
+      </div>
+      <div class="req-field">
+        <div class="req-flabel">命令</div>
+        <div class="req-cmd"><span class="prompt">❯</span><span>easyGet env OPENAI_API_KEY --exec</span></div>
+      </div>
+    </section>
+
+    <!-- ─── 放出哪一条 ─── -->
+    <div class="kv-label" data-od-id="pick-label">
+      <span>放出这一条</span>
+      <span class="mono" id="matchLabel" style="color: var(--accent-active); letter-spacing: 0;">完全匹配</span>
+    </div>
+    <div class="igroup">
+      <button class="irow tappable" id="pickRow" data-od-id="pick-row">
+        <div class="grow">
+          <div class="row-title mono" id="chosenName">OPENAI_API_KEY</div>
+        </div>
+        <span style="color: var(--accent); font-size: var(--text-sm);">改</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+    </div>
+
+    <!-- ─── 别名记忆（手选了不同条目时出现） ─── -->
+    <div class="igroup alias-row" id="aliasRow" style="margin-top: 10px;">
+      <button class="irow" id="aliasToggle" data-od-id="alias-toggle">
+        <div class="grow"><div class="row-title" style="font-size: var(--text-sm); font-weight: 400;">把 <span class="mono">OPENAI_API_KEY</span> 记成这个名字的别名</div></div>
+        <span class="switch" id="aliasSwitch" role="switch" aria-checked="false" aria-label="记成别名"></span>
+      </button>
+    </div>
+
+    <!-- ─── 放出哪一栏 ─── -->
+    <div class="kv-label"><span>放出</span></div>
+    <div style="margin: 0 16px;" data-od-id="field-seg">
+      <div class="seg" role="tablist">
+        <button class="on" id="segSecret" role="tab" aria-selected="true">密码</button>
+        <button id="segNote" role="tab" aria-selected="false">备注</button>
+      </div>
+    </div>
+
+    <!-- ─── 值预览 ─── -->
+    <div class="kv-card" style="margin-top: 10px;" data-od-id="secret-preview">
+      <div class="secret mono" id="previewValue">sk-proj-0000000000000000000000000000000000000000000</div>
+    </div>
+    <p class="foot-note" style="text-align: left; margin: 6px 20px 0;" id="previewMeta">共 51 字符</p>
+
+    <!-- ─── 交付方式提示 ─── -->
+    <div class="notice info" data-od-id="delivery-notice">
+      <div class="n-title">不落盘，用完即焚</div>
+      值只交给请求方进程（环境变量 / 匿名 fd），不写文件；进程退出即消失。
+    </div>
+  </div>
+
+  <!-- ─── 结果态：已放行 / 已拒绝 ─── -->
+  <div class="result" id="okView" data-od-id="result-ok">
+    <div class="result-body">
+      <div class="result-ring ok">
+        <svg viewBox="0 0 96 96" aria-hidden>
+          <circle cx="48" cy="48" r="26" fill="none" stroke="var(--success)" stroke-width="2.4"/>
+          <path d="M32 49l11 11 22-24" fill="none" stroke="var(--success)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2>已放行</h2>
+      <p class="r-route">OPENAI_API_KEY → dev-laptop</p>
+      <p class="r-note">值已用本次 ask 的临时公钥密封，Broker 只转发、解不开。</p>
+    </div>
+    <div class="actions">
+      <a class="btn-tinted" href="vault.html" style="display:flex;align-items:center;justify-content:center;">返回条目</a>
+    </div>
+  </div>
+
+  <div class="result" id="noView" data-od-id="result-denied">
+    <div class="result-body">
+      <div class="result-ring bad">
+        <svg viewBox="0 0 96 96" aria-hidden>
+          <circle cx="48" cy="48" r="26" fill="none" stroke="var(--danger)" stroke-width="2.4"/>
+          <path d="M38 38l20 20M58 38L38 58" fill="none" stroke="var(--danger)" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h2>已拒绝</h2>
+      <p class="r-route">OPENAI_API_KEY ✕ dev-laptop</p>
+      <p class="r-note">终端会以非零退出，Agent 不会拿到任何值。</p>
+    </div>
+    <div class="actions">
+      <a class="btn-tinted" href="vault.html" style="display:flex;align-items:center;justify-content:center;">返回条目</a>
+    </div>
+  </div>
+
+  <!-- ─── 底部操作 ─── -->
+  <div class="actions" id="actionBar" data-od-id="actions">
+    <button class="btn-pill" id="approveBtn" data-od-id="approve">
+      <svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v2"/><path d="M15 9.5v2"/><path d="M12 9.5v3.5h-1"/><path d="M9.6 15.6a3.4 3.4 0 0 0 4.8 0"/></svg>
+      放出（不落盘）
+    </button>
+    <div class="pw-row" id="pwRow">
+      <input type="password" id="pwInput" placeholder="输入解锁密码" aria-label="解锁密码" />
+      <button class="btn-quiet" id="pwConfirm">确认批准</button>
+    </div>
+    <div class="actions-row">
+      <button class="btn-tinted" id="pwBtn" data-od-id="approve-pw">
+        <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        用密码批准
+      </button>
+      <button class="btn-tinted danger" id="denyBtn" data-od-id="deny">拒绝</button>
+    </div>
+  </div>
+
+  <!-- ─── Face ID 浮层 ─── -->
+  <div class="faceid" id="faceid" data-od-id="faceid">
+    <div class="faceid-card">
+      <svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v2"/><path d="M15 9.5v2"/><path d="M12 9.5v3.5h-1"/><path d="M9.6 15.6a3.4 3.4 0 0 0 4.8 0"/></svg>
+      <span>Face ID</span>
+    </div>
+  </div>
+
+  <!-- ─── 条目选择表单 ─── -->
+  <div class="scrim" id="picker" hidden data-od-id="picker-sheet">
+    <div class="sheet-group">
+      <div class="sheet-title">放出哪一条</div>
+      <button class="sheet-row mono" data-item="OPENAI_API_KEY">OPENAI_API_KEY</button>
+      <button class="sheet-row mono" data-item="ANTHROPIC_API_KEY">ANTHROPIC_API_KEY</button>
+      <button class="sheet-row mono" data-item="GITHUB_TOKEN">GITHUB_TOKEN</button>
+      <button class="sheet-row mono" data-item="SSH-CA-PROD">SSH-CA-PROD</button>
+      <button class="sheet-row mono" data-item="VERCEL_TOKEN">VERCEL_TOKEN</button>
+    </div>
+    <div class="sheet-group sheet-cancel">
+      <button class="sheet-row strong" id="pickerCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- ─── 标签栏 ─── -->
+  <nav class="tabbar-app" data-od-id="tabbar">
+    <a class="tab-item" href="vault.html">
+      <svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.2"/><path d="M11 12 20 3"/><path d="M15.5 6.5l2 2M18 4l2 2"/></svg>
+      条目
+    </a>
+    <a class="tab-item on" href="pending.html">
+      <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 6.5-2.5 8-2.5 8h17S18 14.5 18 8"/><path d="M13.8 20a2 2 0 0 1-3.6 0"/></svg>
+      待批准
+      <span class="badge">1</span>
+    </a>
+    <a class="tab-item" href="settings.html">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      设置
+    </a>
+  </nav>
+
+<script>
+  /* ─── 环形倒计时：<30s 转红，归零禁用批准 ─── */
+  var total = 90, remain = 84;
+  var C = 113.1;
+  var ttlEl = document.getElementById('ttl');
+  var ringFg = document.getElementById('ringFg');
+  var approveBtn = document.getElementById('approveBtn');
+  var pwBtn = document.getElementById('pwBtn');
+  function paint() {
+    ringFg.style.strokeDashoffset = (C * (1 - remain / total)).toFixed(1);
+    var hot = remain <= 30;
+    ringFg.style.stroke = hot ? 'var(--danger)' : 'var(--success)';
+    ttlEl.style.color = hot ? 'var(--danger)' : '';
+  }
+  paint();
+  var clock = setInterval(function () {
+    if (remain <= 0) {
+      clearInterval(clock);
+      ttlEl.textContent = '0:00';
+      approveBtn.disabled = true;
+      approveBtn.textContent = '请求已超时';
+      pwBtn.disabled = true;
+      return;
+    }
+    remain--;
+    ttlEl.textContent = Math.floor(remain / 60) + ':' + String(remain % 60).padStart(2, '0');
+    paint();
+  }, 1000);
+
+  /* ─── 字段分段：切换预览值 ─── */
+  var segSecret = document.getElementById('segSecret');
+  var segNote = document.getElementById('segNote');
+  var preview = document.getElementById('previewValue');
+  var pmeta = document.getElementById('previewMeta');
+  var values = {
+    secret: ['sk-proj-0000000000000000000000000000000000000000000', '共 51 字符'],
+    note:   ['生产环境主 key · 额度 $500/月\n超了找 infra 组加', '共 26 字符 · 2 行']
+  };
+  function setField(f) {
+    var on = f === 'secret';
+    segSecret.classList.toggle('on', on);
+    segNote.classList.toggle('on', !on);
+    segSecret.setAttribute('aria-selected', on);
+    segNote.setAttribute('aria-selected', !on);
+    preview.textContent = values[f][0];
+    pmeta.textContent = values[f][1];
+  }
+  segSecret.onclick = function () { setField('secret'); };
+  segNote.onclick = function () { setField('note'); };
+
+  /* ─── 选条目 ─── */
+  var picker = document.getElementById('picker');
+  var chosenName = document.getElementById('chosenName');
+  var matchLabel = document.getElementById('matchLabel');
+  var aliasRow = document.getElementById('aliasRow');
+  document.getElementById('pickRow').onclick = function () { picker.hidden = false; };
+  document.getElementById('pickerCancel').onclick = function () { picker.hidden = true; };
+  picker.addEventListener('click', function (e) { if (e.target === picker) picker.hidden = true; });
+  picker.querySelectorAll('[data-item]').forEach(function (b) {
+    b.onclick = function () {
+      var name = b.getAttribute('data-item');
+      chosenName.textContent = name;
+      var exact = name === 'OPENAI_API_KEY';
+      matchLabel.textContent = exact ? '完全匹配' : '已手选';
+      matchLabel.style.color = exact ? 'var(--accent-active)' : 'var(--muted)';
+      aliasRow.classList.toggle('show', !exact);
+      picker.hidden = true;
+    };
+  });
+  document.getElementById('aliasToggle').onclick = function () {
+    var sw = document.getElementById('aliasSwitch');
+    var on = sw.classList.toggle('on');
+    sw.setAttribute('aria-checked', on);
+  };
+
+  /* ─── 批准 / 拒绝 ─── */
+  var reqView = document.getElementById('reqView');
+  var actionBar = document.getElementById('actionBar');
+  var faceid = document.getElementById('faceid');
+  function finish(ok) {
+    reqView.style.display = 'none';
+    actionBar.style.display = 'none';
+    document.getElementById(ok ? 'okView' : 'noView').classList.add('show');
+  }
+  document.getElementById('approveBtn').onclick = function () {
+    faceid.classList.add('show');
+    setTimeout(function () { faceid.classList.remove('show'); finish(true); }, 1100);
+  };
+  document.getElementById('denyBtn').onclick = function () { finish(false); };
+
+  var pwRow = document.getElementById('pwRow');
+  pwBtn.onclick = function () {
+    pwRow.classList.add('show');
+    pwBtn.style.display = 'none';
+    document.getElementById('pwInput').focus();
+  };
+  document.getElementById('pwConfirm').onclick = function () { finish(true); };
+</script>
+</body>
+</html>

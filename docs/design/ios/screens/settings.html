@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>设置 · easy-unlocker</title>
+<link rel="stylesheet" href="screen.css" />
+</head>
+<body>
+
+  <!-- ─── 大标题导航 ─── -->
+  <div class="nav" data-od-id="nav">
+    <h1 class="nav-large">设置</h1>
+  </div>
+
+  <div class="scroll" data-od-id="content">
+
+    <!-- ─── 连接与账户 ─── -->
+    <div class="igroup" data-od-id="group-account" style="margin-top: 4px;">
+      <button class="irow tappable" data-od-id="row-gateways">
+        <div class="grow"><div class="row-title">网关</div></div>
+        <span class="value">dev-server · 共 2 个</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-od-id="row-devices">
+        <div class="grow"><div class="row-title">设备</div></div>
+        <span class="value">3 台已配对</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-od-id="row-password">
+        <div class="grow"><div class="row-title">解锁密码</div></div>
+        <span class="value">已设置</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <a class="irow tappable" href="history.html" data-od-id="row-history">
+        <div class="grow"><div class="row-title">批准记录</div></div>
+        <span class="value">10 条</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </a>
+    </div>
+
+    <!-- ─── 备份与行为 ─── -->
+    <div class="igroup" data-od-id="group-backup" style="margin-top: 22px;">
+      <button class="irow tappable" data-od-id="row-autoclose">
+        <div class="grow"><div class="row-title">批准后自动关闭</div></div>
+        <span class="value">5 秒</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-od-id="row-export">
+        <div class="grow"><div class="row-title">导出密文备份</div></div>
+        <span class="value">上次 9月12日</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-od-id="row-import">
+        <div class="grow"><div class="row-title">导入 Bitwarden 导出</div></div>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+    </div>
+
+    <!-- ─── 反馈与推送 ─── -->
+    <div class="igroup" data-od-id="group-feedback" style="margin-top: 22px;">
+      <button class="irow" data-od-id="row-haptics">
+        <div class="grow"><div class="row-title">放行时震动</div></div>
+        <span class="switch on" id="swHaptics" role="switch" aria-checked="true" aria-label="放行时震动"></span>
+      </button>
+      <button class="irow" data-od-id="row-sound">
+        <div class="grow"><div class="row-title">放行时提示音</div></div>
+        <span class="switch" id="swSound" role="switch" aria-checked="false" aria-label="放行时提示音"></span>
+      </button>
+      <div class="irow" data-od-id="row-push">
+        <div class="grow"><div class="row-title">推送</div></div>
+        <span class="value">APNs</span>
+      </div>
+    </div>
+
+    <p class="foot-note mono" data-od-id="recovery-note" style="margin-top: 24px;">恢复码 Documents/easy-unlocker-recovery.txt</p>
+  </div>
+
+  <!-- ─── 标签栏 ─── -->
+  <nav class="tabbar-app" data-od-id="tabbar">
+    <a class="tab-item" href="vault.html">
+      <svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.2"/><path d="M11 12 20 3"/><path d="M15.5 6.5l2 2M18 4l2 2"/></svg>
+      条目
+    </a>
+    <a class="tab-item" href="pending.html">
+      <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 6.5-2.5 8-2.5 8h17S18 14.5 18 8"/><path d="M13.8 20a2 2 0 0 1-3.6 0"/></svg>
+      待批准
+      <span class="badge">1</span>
+    </a>
+    <a class="tab-item on" href="settings.html">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      设置
+    </a>
+  </nav>
+
+<script>
+  function wireSwitch(id) {
+    var el = document.getElementById(id);
+    el.closest('.irow').addEventListener('click', function () {
+      var on = el.classList.toggle('on');
+      el.setAttribute('aria-checked', on);
+    });
+  }
+  wireSwitch('swHaptics');
+  wireSwitch('swSound');
+</script>
+</body>
+</html>

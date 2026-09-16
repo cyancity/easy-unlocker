@@ -1,0 +1,27 @@
+{
+  "configurations" : [
+    {
+      "id" : "A1B2C3D4-E5F6-7890-ABCD-EF1234567890",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testRepetitionMode" : "retryOnFailure",
+    "maximumTestRepetitions" : 3,
+    "testTimeoutsEnabled" : true,
+    "defaultTestExecutionTimeAllowance" : 180
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:EasyUnlocker.xcodeproj",
+        "identifier" : "877A25F74E3C560EA9B428ED",
+        "name" : "EasyUnlockerUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

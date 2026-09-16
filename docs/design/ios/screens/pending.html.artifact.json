@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "screens/pending.html",
+  "entry": "screens/pending.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-09-15T13:01:57.600Z",
+  "updatedAt": "2026-09-15T13:01:57.600Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

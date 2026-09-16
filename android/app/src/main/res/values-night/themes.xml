@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.EasyUnlocker" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#FF2B2D31</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:navigationBarDividerColor">@android:color/transparent</item>
+    </style>
+</resources>

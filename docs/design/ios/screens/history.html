@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>批准记录 · easy-unlocker</title>
+<link rel="stylesheet" href="screen.css" />
+<style>
+  /* iOS push 转场：详情层从右侧滑入 */
+  .push {
+    position: fixed; inset: 0; z-index: 30;
+    background: var(--surface);
+    display: flex; flex-direction: column;
+    transform: translateX(100%);
+    visibility: hidden;
+    box-shadow: -16px 0 40px rgba(0,0,0,.14);
+    transition: transform 340ms var(--ease-standard), visibility 0s 340ms;
+  }
+  .push.open {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 340ms var(--ease-standard);
+  }
+  .req-card .chip { flex: 0 0 auto; }
+  @media (prefers-reduced-motion: reduce) {
+    .push, .push.open { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ─── 导航栏 ─── -->
+  <div class="nav" data-od-id="nav">
+    <div class="nav-bar">
+      <a class="nav-back" href="settings.html">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+        设置
+      </a>
+      <span class="title">批准记录</span>
+      <span style="width: 44px;"></span>
+    </div>
+  </div>
+
+  <!-- ─── 分段筛选 ─── -->
+  <div style="margin: 4px 16px 6px;" data-od-id="filter-seg">
+    <div class="seg" role="tablist">
+      <button class="on" data-f="all" role="tab" aria-selected="true">全部</button>
+      <button data-f="approved" role="tab" aria-selected="false">已放行</button>
+      <button data-f="denied" role="tab" aria-selected="false">已拒绝</button>
+      <button data-f="expired" role="tab" aria-selected="false">已超时</button>
+    </div>
+  </div>
+
+  <!-- ─── 记录列表 ─── -->
+  <div class="scroll" data-od-id="content">
+    <div class="igroup" id="histList" data-od-id="history-list">
+      <button class="irow tappable" data-d="approved" data-od-id="hist-1">
+        <div class="grow">
+          <div class="row-title mono" style="font-size: var(--text-sm);">OPENAI_API_KEY</div>
+          <div class="row-sub mono">dev-laptop · 9月15日 09:41</div>
+        </div>
+        <span class="chip ok">已放行</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-d="denied" data-od-id="hist-2">
+        <div class="grow">
+          <div class="row-title mono" style="font-size: var(--text-sm);">GITHUB_TOKEN</div>
+          <div class="row-sub mono">devin-cli · 9月15日 09:12</div>
+        </div>
+        <span class="chip bad">已拒绝</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-d="expired" data-od-id="hist-3">
+        <div class="grow">
+          <div class="row-title mono" style="font-size: var(--text-sm);">SSH-CA-PROD</div>
+          <div class="row-sub mono">wsl-dev · 9月14日 22:03</div>
+        </div>
+        <span class="chip warn">已超时</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-d="approved" data-od-id="hist-4">
+        <div class="grow">
+          <div class="row-title mono" style="font-size: var(--text-sm);">ANTHROPIC_API_KEY</div>
+          <div class="row-sub mono">dev-laptop · 9月14日 18:47</div>
+        </div>
+        <span class="chip ok">已放行</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-d="approved" data-od-id="hist-5">
+        <div class="grow">
+          <div class="row-title mono" style="font-size: var(--text-sm);">NPM_TOKEN</div>
+          <div class="row-sub mono">vps-01 · 9月14日 15:20</div>
+        </div>
+        <span class="chip ok">已放行</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-d="expired" data-od-id="hist-6">
+        <div class="grow">
+          <div class="row-title mono" style="font-size: var(--text-sm);">VERCEL_TOKEN</div>
+          <div class="row-sub mono">dev-laptop · 9月13日 11:05</div>
+        </div>
+        <span class="chip warn">已超时</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-d="approved" data-od-id="hist-7">
+        <div class="grow">
+          <div class="row-title mono" style="font-size: var(--text-sm);">CLOUDFLARE_API_TOKEN</div>
+          <div class="row-sub mono">vps-01 · 9月12日 16:32</div>
+        </div>
+        <span class="chip ok">已放行</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-d="denied" data-od-id="hist-8">
+        <div class="grow">
+          <div class="row-title mono" style="font-size: var(--text-sm);">GITHUB_TOKEN</div>
+          <div class="row-sub mono">wsl-dev · 9月12日 10:14</div>
+        </div>
+        <span class="chip bad">已拒绝</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-d="approved" data-od-id="hist-9">
+        <div class="grow">
+          <div class="row-title mono" style="font-size: var(--text-sm);">SSH-CA-PROD</div>
+          <div class="row-sub mono">dev-laptop · 9月11日 20:58</div>
+        </div>
+        <span class="chip ok">已放行</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+      <button class="irow tappable" data-d="approved" data-od-id="hist-10">
+        <div class="grow">
+          <div class="row-title mono" style="font-size: var(--text-sm);">OPENAI_API_KEY</div>
+          <div class="row-sub mono">devin-cli · 9月11日 08:26</div>
+        </div>
+        <span class="chip ok">已放行</span>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </button>
+    </div>
+
+    <p class="foot-note" id="histEmpty" hidden>这个状态下还没有记录。</p>
+    <p class="foot-note" data-od-id="history-foot">放行、拒绝和超时会留在这台手机上，不上传。</p>
+  </div>
+
+  <!-- ─── 记录详情（push 进入） ─── -->
+  <div class="push" id="detail" data-od-id="history-detail" aria-hidden="true">
+    <div class="nav">
+      <div class="nav-bar">
+        <button class="nav-back" id="dBack">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+          批准记录
+        </button>
+        <span class="title">记录详情</span>
+        <span style="width: 44px;"></span>
+      </div>
+    </div>
+    <div class="scroll">
+      <!-- 当时那条请求的快照 -->
+      <section class="req-card" style="margin-top: 8px;">
+        <div class="req-head">
+          <div class="req-dev" aria-hidden>
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7.5 9.5l3 2.5-3 2.5"/><path d="M12.5 15h4"/></svg>
+          </div>
+          <div class="req-who">
+            <div class="who-name" id="dDev">dev-laptop</div>
+            <div class="who-sub" id="dTime">9月15日 09:41 发起</div>
+          </div>
+          <span class="chip ok" id="dChip">已放行</span>
+        </div>
+        <div class="req-name" id="dKey" style="font-size: 24px;">OPENAI_API_KEY</div>
+        <div class="req-field">
+          <div class="req-flabel">用途</div>
+          <p class="req-fval" id="dReason"></p>
+        </div>
+        <div class="req-field">
+          <div class="req-flabel">命令</div>
+          <div class="req-cmd"><span class="prompt">❯</span><span id="dCmd"></span></div>
+        </div>
+      </section>
+
+      <!-- 处理结果 -->
+      <p class="group-label">处理结果</p>
+      <div class="igroup">
+        <div class="irow">
+          <div class="grow"><div class="row-title">结果</div></div>
+          <span class="value" id="dResult" style="color: var(--success);">已放行</span>
+        </div>
+        <div class="irow">
+          <div class="grow"><div class="row-title">批准方式</div></div>
+          <span class="value" id="dVia">Face ID</span>
+        </div>
+        <div class="irow">
+          <div class="grow"><div class="row-title">交付字段</div></div>
+          <span class="value" id="dFields">密码</span>
+        </div>
+        <div class="irow">
+          <div class="grow"><div class="row-title">耗时</div></div>
+          <span class="value" id="dTook">12 秒</span>
+        </div>
+      </div>
+
+      <p class="foot-note">这是当时那条请求的完整快照，值本身不留痕。</p>
+    </div>
+  </div>
+
+<script>
+  /* ─── 分段筛选 ─── */
+  var segBtns = document.querySelectorAll('.seg button');
+  var rows = document.querySelectorAll('#histList .irow');
+  var empty = document.getElementById('histEmpty');
+  segBtns.forEach(function (b) {
+    b.onclick = function () {
+      segBtns.forEach(function (x) { x.classList.remove('on'); x.setAttribute('aria-selected', 'false'); });
+      b.classList.add('on'); b.setAttribute('aria-selected', 'true');
+      var f = b.getAttribute('data-f');
+      var shown = 0;
+      rows.forEach(function (r) {
+        var hit = f === 'all' || r.getAttribute('data-d') === f;
+        r.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      empty.hidden = shown !== 0;
+    };
+  });
+
+  /* ─── 记录详情 ─── */
+  var DETAILS = {
+    'hist-1':  { st: 'ok',   stText: '已放行', dev: 'dev-laptop',   time: '9月15日 09:41', key: 'OPENAI_API_KEY',       via: 'Face ID', fields: '密码',        took: '12 秒',       reason: '给 codex 批量跑 review 注入 env。',   cmd: "easyGet env OPENAI_API_KEY --exec 'npm run review'" },
+    'hist-2':  { st: 'bad',  stText: '已拒绝', dev: 'devin-cli',  time: '9月15日 09:12', key: 'GITHUB_TOKEN',         via: '—',       fields: '—',          took: '5 秒后拒绝',   reason: '用途对不上这条凭据，直接拒了。',      cmd: 'easyGet env GITHUB_TOKEN --for "gh api"' },
+    'hist-3':  { st: 'warn', stText: '已超时', dev: 'wsl-dev',   time: '9月14日 22:03', key: 'SSH-CA-PROD',         via: '—',       fields: '—',          took: '120 秒无响应', reason: '深夜自动任务，手机不在手边。',        cmd: 'easyGet ssh --ca SSH-CA-PROD --host web-01' },
+    'hist-4':  { st: 'ok',   stText: '已放行', dev: 'dev-laptop',   time: '9月14日 18:47', key: 'ANTHROPIC_API_KEY',   via: 'Face ID', fields: '密码',        took: '8 秒',        reason: 'devin 会话要调 Anthropic 接口。',     cmd: "easyGet env ANTHROPIC_API_KEY --exec 'devin run'" },
+    'hist-5':  { st: 'ok',   stText: '已放行', dev: 'vps-01', time: '9月14日 15:20', key: 'NPM_TOKEN',           via: '密码',     fields: '密码',        took: '31 秒',       reason: 'CI 发包前的本地预检。',               cmd: "easyGet env NPM_TOKEN --exec 'npm publish --dry-run'" },
+    'hist-6':  { st: 'warn', stText: '已超时', dev: 'dev-laptop',   time: '9月13日 11:05', key: 'VERCEL_TOKEN',        via: '—',       fields: '—',          took: '120 秒无响应', reason: '推送被系统折叠，没注意到。',          cmd: "easyGet env VERCEL_TOKEN --exec 'vercel deploy'" },
+    'hist-7':  { st: 'ok',   stText: '已放行', dev: 'vps-01', time: '9月12日 16:32', key: 'CLOUDFLARE_API_TOKEN',via: 'Face ID', fields: '密码 + 备注', took: '15 秒',       reason: '改 DNS 前先读 zone 配置。',           cmd: "easyGet env CLOUDFLARE_API_TOKEN --exec 'flarectl zone list'" },
+    'hist-8':  { st: 'bad',  stText: '已拒绝', dev: 'wsl-dev',   time: '9月12日 10:14', key: 'GITHUB_TOKEN',         via: '—',       fields: '—',          took: '6 秒后拒绝',   reason: '理由写得太模糊，拒掉让对面重发。',    cmd: 'easyGet env GITHUB_TOKEN' },
+    'hist-9':  { st: 'ok',   stText: '已放行', dev: 'dev-laptop',   time: '9月11日 20:58', key: 'SSH-CA-PROD',         via: 'Face ID', fields: '备注',        took: '10 秒',       reason: '给新装的 wsl-dev 签登录证书。',      cmd: 'easyGet ssh --ca SSH-CA-PROD --host wsl-dev' },
+    'hist-10': { st: 'ok',   stText: '已放行', dev: 'devin-cli',  time: '9月11日 08:26', key: 'OPENAI_API_KEY',       via: '密码',     fields: '密码',        took: '40 秒',       reason: '例行日报任务取 key。',                cmd: "easyGet env OPENAI_API_KEY --exec 'python digest.py'" }
+  };
+  var ST_COLOR = {
+    ok:   'var(--success)',
+    bad:  'var(--danger)',
+    warn: 'color-mix(in oklab, var(--warn) 55%, var(--fg))'
+  };
+
+  var detail = document.getElementById('detail');
+  var dBack = document.getElementById('dBack');
+  var dChip = document.getElementById('dChip');
+  var dDev = document.getElementById('dDev');
+  var dTime = document.getElementById('dTime');
+  var dKey = document.getElementById('dKey');
+  var dReason = document.getElementById('dReason');
+  var dCmd = document.getElementById('dCmd');
+  var dResult = document.getElementById('dResult');
+  var dVia = document.getElementById('dVia');
+  var dFields = document.getElementById('dFields');
+  var dTook = document.getElementById('dTook');
+  var lastRow = null;
+
+  function openDetail(d, row) {
+    dChip.className = 'chip ' + d.st;
+    dChip.textContent = d.stText;
+    dDev.textContent = d.dev;
+    dTime.textContent = d.time + ' 发起';
+    dKey.textContent = d.key;
+    dReason.textContent = d.reason;
+    dCmd.textContent = d.cmd;
+    dResult.textContent = d.stText;
+    dResult.style.color = ST_COLOR[d.st];
+    dVia.textContent = d.via;
+    dFields.textContent = d.fields;
+    dTook.textContent = d.took;
+    detail.classList.add('open');
+    detail.setAttribute('aria-hidden', 'false');
+    detail.querySelector('.scroll').scrollTop = 0;
+    lastRow = row;
+    dBack.focus();
+  }
+  function closeDetail() {
+    detail.classList.remove('open');
+    detail.setAttribute('aria-hidden', 'true');
+    if (lastRow) lastRow.focus();
+  }
+
+  rows.forEach(function (r) {
+    r.addEventListener('click', function () {
+      var d = DETAILS[r.getAttribute('data-od-id')];
+      if (d) openDetail(d, r);
+    });
+  });
+  dBack.onclick = closeDetail;
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && detail.classList.contains('open')) closeDetail();
+  });
+</script>
+</body>
+</html>

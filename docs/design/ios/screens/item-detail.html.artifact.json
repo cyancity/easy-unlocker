@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "screens/item-detail.html",
+  "entry": "screens/item-detail.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-09-15T12:59:56.800Z",
+  "updatedAt": "2026-09-15T12:59:56.800Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

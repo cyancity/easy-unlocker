@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OPENAI_API_KEY · easy-unlocker</title>
+<link rel="stylesheet" href="screen.css" />
+</head>
+<body>
+
+  <!-- ─── 导航栏 ─── -->
+  <div class="nav" data-od-id="nav">
+    <div class="nav-bar">
+      <a class="nav-back" href="vault.html">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+        条目
+      </a>
+      <span class="title mono" style="font-family: var(--font-mono); font-size: var(--text-sm);">OPENAI_API_KEY</span>
+      <button class="nav-action" id="menuBtn" aria-label="更多操作" data-od-id="item-menu">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2"/><circle cx="8" cy="12" r="0.6" fill="currentColor"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/><circle cx="16" cy="12" r="0.6" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="scroll" data-od-id="content">
+    <!-- ─── 别名 ─── -->
+    <div style="display: flex; gap: 6px; padding: 6px 16px 0;" data-od-id="aliases">
+      <span class="chip">别名 openai-main</span>
+      <span class="chip">别名 gpt-key</span>
+    </div>
+
+    <!-- ─── 密码 ─── -->
+    <div class="kv-label" data-od-id="label-secret">
+      <span>密码</span>
+      <button class="copybtn" data-copy="sk-proj-0000000000000000000000000000000000000000000">
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+        复制
+      </button>
+    </div>
+    <div class="kv-card" data-od-id="secret-card">
+      <div class="secret mono">sk-proj-0000000000000000000000000000000000000000000</div>
+    </div>
+
+    <!-- ─── 备注 ─── -->
+    <div class="kv-label" data-od-id="label-note">
+      <span>备注</span>
+      <button class="copybtn" data-copy="生产环境主 key · 额度 $500/月，超了找 infra 组加">
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+        复制
+      </button>
+    </div>
+    <div class="kv-card" data-od-id="note-card">
+      <div class="secret mono">生产环境主 key · 额度 $500/月
+超了找 infra 组加</div>
+    </div>
+
+    <!-- ─── SSH CA 公钥 ─── -->
+    <div class="kv-label" data-od-id="label-ca">
+      <span>SSH CA 公钥</span>
+      <button class="copybtn" data-copy="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ7fQm9vKp3xWnL2sRtY8uHbV4cD6eG1jM0aP5oF9wXy easy-unlocker-ca">
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+        复制
+      </button>
+    </div>
+    <div class="kv-card accent" data-od-id="ca-card">
+      <div class="secret mono" style="font-size: var(--text-xs);">ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ7fQm9vKp3xWnL2sRtY8uHbV4cD6eG1jM0aP5oF9wXy easy-unlocker-ca</div>
+      <div class="mono" style="font-size: var(--text-xs); color: var(--muted); margin-top: 8px;">SHA256:9fK2vR7mQdXwL4nTcF8hJ3sPzY6uE1aG5xN0oViHq</div>
+      <div style="font-size: var(--text-xs); color: var(--muted); line-height: 1.45; margin-top: 8px;">把上面那行放进目标机的 TrustedUserCAKeys 文件，这条目就能给 easyGet ssh 签证书。</div>
+    </div>
+
+    <p class="foot-note" data-od-id="secure-note">切到后台会自动上锁 · 已屏蔽截屏</p>
+  </div>
+
+  <!-- ─── 条目操作表单 ─── -->
+  <div class="scrim" id="menuSheet" hidden data-od-id="menu-sheet">
+    <div class="sheet-group">
+      <div class="sheet-title">条目操作</div>
+      <a class="sheet-row" href="item-edit.html" style="display:block;">编辑名称、密码与备注</a>
+      <button class="sheet-row danger" id="askDelete">删除这条凭据</button>
+    </div>
+    <div class="sheet-group sheet-cancel">
+      <button class="sheet-row strong" data-close="menuSheet">取消</button>
+    </div>
+  </div>
+
+  <!-- ─── 删除确认 ─── -->
+  <div class="scrim" id="confirmSheet" hidden data-od-id="confirm-sheet">
+    <div class="sheet-group">
+      <div class="sheet-title">删除 <span class="mono">OPENAI_API_KEY</span>？<br>删除后无法撤销。恢复只能靠密文备份 + 恢复码。</div>
+      <button class="sheet-row danger strong" id="doDelete">删除</button>
+    </div>
+    <div class="sheet-group sheet-cancel">
+      <button class="sheet-row strong" data-close="confirmSheet">取消</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+<script>
+  var menuSheet = document.getElementById('menuSheet');
+  var confirmSheet = document.getElementById('confirmSheet');
+  var toast = document.getElementById('toast');
+  var toastTimer;
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.hidden = true; }, 1600);
+  }
+
+  document.getElementById('menuBtn').onclick = function () { menuSheet.hidden = false; };
+  document.getElementById('askDelete').onclick = function () {
+    menuSheet.hidden = true;
+    confirmSheet.hidden = false;
+  };
+  document.getElementById('doDelete').onclick = function () {
+    confirmSheet.hidden = true;
+    showToast('已删除');
+  };
+  document.querySelectorAll('[data-close]').forEach(function (b) {
+    b.onclick = function () { document.getElementById(b.getAttribute('data-close')).hidden = true; };
+  });
+  [menuSheet, confirmSheet].forEach(function (s) {
+    s.addEventListener('click', function (e) { if (e.target === s) s.hidden = true; });
+  });
+
+  document.querySelectorAll('.copybtn').forEach(function (b) {
+    b.onclick = function () {
+      var v = b.getAttribute('data-copy');
+      if (navigator.clipboard) navigator.clipboard.writeText(v).catch(function () {});
+      b.classList.add('done');
+      var label = b.lastChild;
+      var old = label.textContent;
+      label.textContent = ' 已复制';
+      showToast('已复制到剪贴板 · 30 秒后自动清空');
+      setTimeout(function () { b.classList.remove('done'); label.textContent = old; }, 1600);
+    };
+  });
+</script>
+</body>
+</html>

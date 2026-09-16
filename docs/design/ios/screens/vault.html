@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>条目 · easy-unlocker</title>
+<link rel="stylesheet" href="screen.css" />
+</head>
+<body>
+
+  <!-- ─── 大标题导航 ─── -->
+  <div class="nav" data-od-id="nav">
+    <div class="nav-large-row">
+      <h1 class="nav-large">条目</h1>
+      <a class="nav-add" href="item-edit.html" aria-label="添加条目" data-od-id="add-item">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <!-- ─── 搜索 ─── -->
+  <div class="search-wrap" data-od-id="search">
+    <div class="search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="q" type="search" placeholder="搜索" autocomplete="off" aria-label="搜索条目" />
+    </div>
+  </div>
+
+  <!-- ─── 条目列表 ─── -->
+  <div class="scroll" data-od-id="content">
+    <div class="igroup" id="itemList" data-od-id="item-list">
+      <a class="irow tappable" href="item-detail.html" data-od-id="vault-item-openai">
+        <div class="grow">
+          <div class="row-title mono">OPENAI_API_KEY</div>
+          <div class="row-sub mono">••••••••</div>
+        </div>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </a>
+      <a class="irow tappable" href="item-detail.html" data-od-id="vault-item-anthropic">
+        <div class="grow">
+          <div class="row-title mono">ANTHROPIC_API_KEY</div>
+          <div class="row-sub mono">••••••••</div>
+        </div>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </a>
+      <a class="irow tappable" href="item-detail.html" data-od-id="vault-item-github">
+        <div class="grow">
+          <div class="row-title mono">GITHUB_TOKEN</div>
+          <div class="row-sub mono">•••••••• · 别名 gh-pat</div>
+        </div>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </a>
+      <a class="irow tappable" href="item-detail.html" data-od-id="vault-item-sshca">
+        <div class="grow">
+          <div class="row-title mono">SSH-CA-PROD</div>
+          <div class="row-sub mono">•••••••• · 别名 prod-ca</div>
+        </div>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </a>
+      <a class="irow tappable" href="item-detail.html" data-od-id="vault-item-vercel">
+        <div class="grow">
+          <div class="row-title mono">VERCEL_TOKEN</div>
+          <div class="row-sub mono">••••••••</div>
+        </div>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </a>
+      <a class="irow tappable" href="item-detail.html" data-od-id="vault-item-cloudflare">
+        <div class="grow">
+          <div class="row-title mono">CLOUDFLARE_API_TOKEN</div>
+          <div class="row-sub mono">••••••••</div>
+        </div>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </a>
+      <a class="irow tappable" href="item-detail.html" data-od-id="vault-item-npm">
+        <div class="grow">
+          <div class="row-title mono">NPM_TOKEN</div>
+          <div class="row-sub mono">••••••••</div>
+        </div>
+        <svg class="chev" viewBox="0 0 8 14"><path d="M1 1l5 6-5 6"/></svg>
+      </a>
+    </div>
+
+    <p class="foot-note" id="noMatch" hidden>没有匹配的条目。</p>
+    <p class="foot-note" data-od-id="vault-foot">密钥明文只在这台手机上，批准一次才放出去一次。</p>
+  </div>
+
+  <!-- ─── 标签栏 ─── -->
+  <nav class="tabbar-app" data-od-id="tabbar">
+    <a class="tab-item on" href="vault.html">
+      <svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.2"/><path d="M11 12 20 3"/><path d="M15.5 6.5l2 2M18 4l2 2"/></svg>
+      条目
+    </a>
+    <a class="tab-item" href="pending.html">
+      <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 6.5-2.5 8-2.5 8h17S18 14.5 18 8"/><path d="M13.8 20a2 2 0 0 1-3.6 0"/></svg>
+      待批准
+      <span class="badge">1</span>
+    </a>
+    <a class="tab-item" href="settings.html">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      设置
+    </a>
+  </nav>
+
+<script>
+  var q = document.getElementById('q');
+  var rows = Array.prototype.slice.call(document.querySelectorAll('#itemList .irow'));
+  var noMatch = document.getElementById('noMatch');
+  q.addEventListener('input', function () {
+    var s = q.value.trim().toLowerCase();
+    var shown = 0;
+    rows.forEach(function (r) {
+      var hit = !s || r.textContent.toLowerCase().indexOf(s) !== -1;
+      r.style.display = hit ? '' : 'none';
+      if (hit) shown++;
+    });
+    noMatch.hidden = shown !== 0;
+  });
+</script>
+</body>
+</html>
