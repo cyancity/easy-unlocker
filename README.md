@@ -20,6 +20,7 @@
 </p>
 
 <p align="center">
+  <a href="https://easy-unlocker.pages.dev/"><b>官网</b></a> ·
   <a href="#装和用">装和用</a> ·
   <a href="docs/AGENTS-SETUP.md">给 Agent 的说明书</a> ·
   <a href="docs/PROTOCOL.md">协议规范</a> ·
