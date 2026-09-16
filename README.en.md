@@ -21,6 +21,7 @@
 </p>
 
 <p align="center">
+  <a href="https://easy-unlocker.pages.dev/"><b>Site</b></a> ·
   <a href="#install-and-use">Install &amp; use</a> ·
   <a href="docs/AGENTS-SETUP.md">Agent runbook</a> ·
   <a href="docs/PROTOCOL.md">Protocol</a> ·
