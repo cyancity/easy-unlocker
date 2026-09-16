@@ -10,6 +10,7 @@ broker_url=${EASY_UNLOCKER_BROKER_URL:-}
 pairing_token=${EASY_UNLOCKER_PAIRING_TOKEN:-}
 source_binary=${EASYGET_BINARY:-}
 download_url=${EASYGET_URL:-}
+skill_dir=${EASYGET_SKILL_DIR:-}
 build_dir=
 config_tmp=
 
@@ -78,9 +79,28 @@ if [ ! -f "$agents_file" ] || ! grep -Fq "$marker_start" "$agents_file"; then
 		printf '%s\n' '- 不知道条目名：easyGet list（读本机缓存，免费、不联网）。要一份新的用 easyGet list --refresh（手机会要一次指纹），别每次取用前都刷。'
 		printf '%s\n' '- 缓存只是上一次的快照：名字不在名单里不等于条目不存在，用户给的名字直接请求。'
 		printf '%s\n' '- easyGet 的输出只有状态；不要把目标文件内容放入对话、日志或命令输出。'
+		printf '%s\n' '- 完整用法与排坑：https://github.com/cyancity/easy-unlocker/blob/main/docs/AGENTS-SETUP.md'
 		printf '%s\n' "$marker_end"
 	} >>"$agents_file"
 fi
 
+if [ -n "$skill_dir" ]; then
+	repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+	mkdir -p "$skill_dir/easy-unlocker"
+	if [ -f "$repo_dir/skills/easy-unlocker/SKILL.md" ]; then
+		cp "$repo_dir/skills/easy-unlocker/SKILL.md" "$skill_dir/easy-unlocker/SKILL.md"
+		echo "agent skill 已装到 $skill_dir/easy-unlocker/"
+	elif curl --fail --silent --show-error --location \
+		"https://raw.githubusercontent.com/cyancity/easy-unlocker/main/skills/easy-unlocker/SKILL.md" \
+		--output "$skill_dir/easy-unlocker/SKILL.md" 2>/dev/null; then
+		echo "agent skill 已装到 $skill_dir/easy-unlocker/"
+	else
+		echo "skill 安装失败（可选步骤，不影响 easyGet 使用）" >&2
+	fi
+fi
+
 PATH="$install_dir:$PATH" EASY_UNLOCKER_CONFIG="$config_path" "$install_dir/easyGet" ping
 echo "easyGet 已安装到 $install_dir/easyGet"
+if [ -z "$skill_dir" ]; then
+	echo "可选：给 agent 装 easyGet skill → EASYGET_SKILL_DIR=<skills 目录> 重跑本脚本（如 ~/.claude/skills、~/.config/devin/skills）"
+fi

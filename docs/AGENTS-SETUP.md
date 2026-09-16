@@ -57,6 +57,8 @@ go build -trimpath -o dist/easyGet ./cli/cmd/easyget
 
 可选：`./scripts/install.sh` 会把 `easyGet` 装到 `~/.local/bin/easyGet`，并写配置。需要环境变量 `EASY_UNLOCKER_BROKER_URL` 和 `EASY_UNLOCKER_PAIRING_TOKEN`。它还会往**当前工作目录**的 `AGENTS.md` 追加一段「需要凭据时只调用 easyGet」——那是给**调用方项目**的，不是本仓库的本文。
 
+再可选：`EASYGET_SKILL_DIR=<skills 目录> ./scripts/install.sh` 会顺手把 `skills/easy-unlocker/SKILL.md` 装进去（如 `~/.claude/skills`、`~/.config/devin/skills`）——给按 skill 描述自动触发的 agent 用，装了它，agent 在「需要凭据」的场景会主动想到 easyGet。
+
 ### 1.3 发版（维护者）
 
 **main 每次合并后跑一次**，否则别的机器只能现场编译：

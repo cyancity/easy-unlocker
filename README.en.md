@@ -103,7 +103,7 @@ easyGet list
 easyGet ssh my-ssh-ca --for "log into the server for diagnostics"
 ```
 
-> **You're an agent / coding assistant?** Install, pairing, how to pick between the request modes, and what not to do: it's all in [docs/AGENTS-SETUP.md](docs/AGENTS-SETUP.md). Follow it, and never ask a human to paste you a secret.
+> **You're an agent / coding assistant?** Install, pairing, how to pick between the request modes, and what not to do: it's all in [docs/AGENTS-SETUP.md](docs/AGENTS-SETUP.md). Follow it, and never ask a human to paste you a secret. Optional: drop [`skills/easy-unlocker/`](skills/easy-unlocker/SKILL.md) into your skills directory.
 
 ## Features and status
 

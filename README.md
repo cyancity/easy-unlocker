@@ -101,7 +101,7 @@ easyGet list
 easyGet ssh my-ssh-ca --for "登录服务器跑诊断"
 ```
 
-> **你是 Agent / 编码助手？** 安装、配对、三种模式怎么选、哪些事别做，都写在 [docs/AGENTS-SETUP.md](docs/AGENTS-SETUP.md)。照着做，别让人把密钥贴给你。
+> **你是 Agent / 编码助手？** 安装、配对、三种模式怎么选、哪些事别做，都写在 [docs/AGENTS-SETUP.md](docs/AGENTS-SETUP.md)。照着做，别让人把密钥贴给你。可选：把 [`skills/easy-unlocker/`](skills/easy-unlocker/SKILL.md) 装进你的 skills 目录。
 
 ## 功能与进度
 
