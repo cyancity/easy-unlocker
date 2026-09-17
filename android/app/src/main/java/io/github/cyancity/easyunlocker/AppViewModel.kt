@@ -108,6 +108,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val state = _state.asStateFlow()
     private var watching = false
     private var vaultHold = 0
+    /** 已经为哪台网关拉过设备表：设置页那行不该等到点进设备页才有内容，但也不必每次 onStart 都拉。 */
+    private var devicesLoadedFor = ""
     /** 其它网关的待批准轮询：比主循环慢一档，且同一时刻只允许一个在跑。 */
     private var lastOtherPollAt = 0L
     private var otherPolling = false
@@ -138,6 +140,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             lastOtherPollAt = 0L
             main.post(watch)
         }
+        loadDevicesIfStale()
     }
 
     fun stopWatching() {
@@ -703,6 +706,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = _state.value.copy(
             otherPending = _state.value.otherPending.filterNot { it.pairingId == _state.value.activePairingId },
         )
+        devicesLoadedFor = _state.value.activePairingId
+        loadDevices()
+    }
+
+    /** 冷启动/回前台补一次设备表：设置页「设备」那行不该等到点进设备页才有内容。 */
+    private fun loadDevicesIfStale() {
+        val id = _state.value.activePairingId
+        if (id.isEmpty() || id == devicesLoadedFor) return
+        devicesLoadedFor = id
         loadDevices()
     }
 
