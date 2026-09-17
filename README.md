@@ -7,7 +7,7 @@
 <p align="center">
   <b>Secrets management for AI agents, approved on your phone.</b><br>
   When an agent needs an API key or credential, the plaintext never enters the conversation.<br>
-  One fingerprint, and the value arrives sealed to that one process.
+  One fingerprint on a separate device, and the value arrives sealed to that one process.
 </p>
 
 <p align="center">
@@ -44,7 +44,7 @@ easyGet env OPENAI_API_KEY --exec 'python run.py' --for "calling the openai api"
 # → fingerprint → the value lands in the python process env, never on disk
 ```
 
-Each `easyGet` run mints a one-time keypair. The public key rides the request to your phone, the phone seals the value with it, and only the private key held by that one command can open it. **The relay in between sees ciphertext and nothing else.**
+Each `easyGet` run mints a one-time keypair. The public key rides the request to your phone, the phone seals the value with it, and only the private key held by that one command can open it. **The relay in between sees ciphertext and nothing else.** And because the approval lives on a second device, not in a window on the machine that asked, it still works when the agent runs on a server or a CI runner with no screen at all.
 
 ```
 ┌────────┐  ① request (+one-time pubkey) ┌────────┐  ② push/poll   ┌────────┐
@@ -55,7 +55,7 @@ Each `easyGet` run mints a one-time keypair. The public key rides the request to
                                                                          plaintext exit
 ```
 
-> Not a password manager and not a Bitwarden or 1Password replacement, no browser autofill. It holds only the few secrets you're willing to hand to an agent.
+> Not a password manager and not a Bitwarden or 1Password replacement, no browser autofill, no subscription to buy. The vault lives on your phone and holds only the few secrets you're willing to hand to an agent.
 
 ## Install and use
 
@@ -113,6 +113,7 @@ Works with anything that can exec a shell command: Claude Code, Codex, Cursor, W
 ### Working today
 
 - Phone approvals: every request shows who asked, what for, and where the value lands. Approve with biometrics or password, or deny.
+- Approval happens on a second device, not in a window on the requesting machine: a compromised process can't fake the prompt, and headless agents on servers or CI can still reach a human.
 - Two ways to hand over: write to a 0600 file, or inject into a child process env with nothing left on disk.
 - Item name list: `easyGet list` lets the agent check names before asking, instead of guessing and buzzing your phone.
 - Short-lived SSH certs: the phone signs a minutes-valid login certificate with a CA key stored in the vault. The private key never leaves the phone.
