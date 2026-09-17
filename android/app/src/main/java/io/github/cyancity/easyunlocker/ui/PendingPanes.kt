@@ -75,6 +75,7 @@ fun PendingPane(
     onRetry: () -> Unit,
     onExpire: (String) -> Unit,
     onArrived: () -> Unit,
+    onOpenGateway: (String) -> Unit,
 ) {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -111,6 +112,9 @@ fun PendingPane(
             if (state.offline) {
                 OfflineBanner(state.lastSync, onRetry)
                 Spacer(Modifier.height(16.dp))
+            }
+            if (state.otherPending.isNotEmpty()) {
+                OtherGatewayHint(state, onOpenGateway)
             }
             when {
                 state.loading -> SkeletonBlock(state.brokerUrl.ifBlank { "broker" })
@@ -281,6 +285,59 @@ private fun ArrivalBar(pct: Float, play: Boolean, onPlayed: () -> Unit) {
                 radius = s.size,
                 center = Offset(s.x * size.width, mid + s.y * size.height),
             )
+        }
+    }
+}
+
+/**
+ * 别的网关上有待批准。批准只能在收到请求的那台上做，所以这里只给「切过去」——
+ * 切过去会自动把那条请求展开。
+ */
+@Composable
+private fun OtherGatewayHint(state: UiState, onOpen: (String) -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        state.otherPending.forEach { other ->
+            val pairing = state.pairings.firstOrNull { it.id == other.pairingId } ?: return@forEach
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(Dimens.rCard))
+                    .background(Tokens.surface)
+                    .border(1.dp, Tokens.warn, RoundedCornerShape(Dimens.rCard))
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "${pairing.name} 有 ${other.count} 条待批准",
+                        color = Tokens.fg,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        "请求在另一台网关上，得切过去才能批",
+                        color = Tokens.muted,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp,
+                        modifier = Modifier.padding(top = 3.dp),
+                    )
+                }
+                Text(
+                    "切过去",
+                    color = Tokens.accentText,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .clickable(role = Role.Button) { onOpen(other.pairingId) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
         }
     }
 }

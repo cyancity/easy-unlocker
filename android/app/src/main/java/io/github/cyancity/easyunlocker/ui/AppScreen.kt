@@ -36,7 +36,7 @@ private sealed class Sheet {
     data class GatewayMenu(val id: String) : Sheet()
     data class GatewayRename(val id: String, val name: String) : Sheet()
     data class GatewayConfirm(val id: String, val name: String) : Sheet()
-    data class DeviceRename(val device: PairedDevice) : Sheet()
+    data class DeviceRename(val pairingId: String, val device: PairedDevice) : Sheet()
 }
 
 @Composable
@@ -56,6 +56,7 @@ fun AppScreen(
     onCopy: (String) -> Unit,
     onPair: (String, String, String) -> Unit,
     onSwitchGateway: (String) -> Unit,
+    onSwitchToPending: (String) -> Unit,
     onRenameGateway: (String, String) -> Unit,
     onRemoveGateway: (String) -> Unit,
     onRefresh: () -> Unit,
@@ -64,8 +65,8 @@ fun AppScreen(
     onCreatePairCode: () -> Unit,
     onClearPairCode: () -> Unit,
     onRenewDevice: () -> Unit,
-    onRenameDevice: (String, String) -> Unit,
-    onRevokeDevice: (PairedDevice) -> Unit,
+    onRenameDevice: (String, String, String) -> Unit,
+    onRevokeDevice: (String, PairedDevice) -> Unit,
     onToast: (String) -> Unit,
     onOpenDevices: () -> Unit,
     onOpenHistory: (String) -> Unit,
@@ -171,6 +172,7 @@ fun AppScreen(
                     onRetry = onRetry,
                     onExpire = onExpire,
                     onArrived = onClearIncoming,
+                    onOpenGateway = onSwitchToPending,
                 )
                 Screen.Approved -> ApprovedPane(state.lastApprovedItem, state.lastApprovedRequester) { onGo(Screen.Vault) }
                 Screen.Devices -> DevicesPane(
@@ -178,7 +180,7 @@ fun AppScreen(
                     onBack = { onGo(Screen.Settings) },
                     onAdd = onCreatePairCode,
                     onRenew = onRenewDevice,
-                    onRename = { sheet = Sheet.DeviceRename(it) },
+                    onRename = { pairingId, device -> sheet = Sheet.DeviceRename(pairingId, device) },
                     onRevoke = onRevokeDevice,
                     onDismissCode = onClearPairCode,
                     onToast = onToast,
@@ -208,6 +210,7 @@ fun AppScreen(
                     state = state,
                     onAdd = { onGo(Screen.Pair) },
                     onSwitch = onSwitchGateway,
+                    onOpenPending = onSwitchToPending,
                     onMenu = { id -> sheet = Sheet.GatewayMenu(id) },
                     onBack = { onGo(Screen.Settings) },
                 )
@@ -234,7 +237,7 @@ fun AppScreen(
                         Screen.Settings -> Screen.Settings
                         else -> Screen.Vault
                     },
-                    pendingCount = state.pending.size,
+                    pendingCount = state.pendingBadge,
                     onTab = { tab ->
                         if (tab == Screen.Pending) onRefresh() else onGo(tab)
                     },
@@ -324,7 +327,7 @@ fun AppScreen(
                         is Sheet.DeviceRename -> RenameDeviceSheet(
                             current = s.device.name,
                             onConfirm = { name ->
-                                onRenameDevice(s.device.id, name)
+                                onRenameDevice(s.pairingId, s.device.id, name)
                                 sheet = Sheet.None
                             },
                             onCancel = { sheet = Sheet.None },
