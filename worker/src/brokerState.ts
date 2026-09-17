@@ -465,16 +465,18 @@ export class BrokerState extends DurableObject<Env> {
     const list = await this.ctx.storage.list<DeviceRecord>({ prefix: DEV_PREFIX });
     const devices = [...list.entries()]
       .filter(([, device]) => device.expiresAt > now && tenantOf(device) === tenantOf(caller))
+      // 排序用原始毫秒字段：下面 map 成字符串后相减会变 NaN
+      .sort((a, b) => a[1].created - b[1].created)
       .map(([key, device]) => ({
         id: device.id,
         name: device.name,
         role: roleOf(device),
-        created_at: device.created,
-        last_used_at: device.lastUsedAt ?? null,
-        expires_at: device.expiresAt,
+        // 时间一律 ISO：Go broker 用 RFC3339，两端同格式客户端才不用猜
+        created_at: new Date(device.created).toISOString(),
+        last_used_at: device.lastUsedAt ? new Date(device.lastUsedAt).toISOString() : null,
+        expires_at: new Date(device.expiresAt).toISOString(),
         current: key === DEV_PREFIX + current,
-      }))
-      .sort((a, b) => a.created_at - b.created_at);
+      }));
     return { devices };
   }
 

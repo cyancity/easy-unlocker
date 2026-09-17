@@ -1271,3 +1271,40 @@ func TestTenantIsolation(t *testing.T) {
 		t.Fatal("request did not finish after deny")
 	}
 }
+
+// 设备列表的时间字段必须是 RFC3339。CF worker 曾经直接透传 epoch 毫秒，
+// 客户端按 ISO 解析失败后把裸数字显示给了用户；两个实现同格式就是本测试守的东西。
+func TestDeviceListTimestampsAreRFC3339(t *testing.T) {
+	_, httpServer := newTestServer(t, NewMapStore(nil), nil, &testAudit{}, 30*time.Second)
+	approver := pairApprover(t, httpServer.URL)
+	claimRequester(t, httpServer.URL, approver)
+
+	response, body := doJSON(t, http.MethodGet, httpServer.URL+"/v1/device/devices", approver, nil)
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("devices status=%d body=%s", response.StatusCode, body)
+	}
+	var payload struct {
+		Devices []struct {
+			CreatedAt string `json:"created_at"`
+			ExpiresAt string `json:"expires_at"`
+		} `json:"devices"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Devices) == 0 {
+		t.Fatal("设备列表是空的")
+	}
+	for _, device := range payload.Devices {
+		fields := map[string]string{"created_at": device.CreatedAt, "expires_at": device.ExpiresAt}
+		for name, value := range fields {
+			parsed, err := time.Parse(time.RFC3339, value)
+			if err != nil {
+				t.Fatalf("%s=%q 不是 RFC3339: %v", name, value, err)
+			}
+			if parsed.IsZero() {
+				t.Fatalf("%s 解析成了零值", name)
+			}
+		}
+	}
+}
