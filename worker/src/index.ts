@@ -387,7 +387,7 @@ async function handleRevoke(request: Request, env: Env): Promise<Response> {
 /** 给某个设备改名（同租户内）。 */
 async function handleRename(request: Request, env: Env): Promise<Response> {
   if (request.method !== "POST") return methodNotAllowed();
-  const body = await readJson(request, ["id"]).catch(() => null);
+  const body = await readJson(request, ["id", "name"]).catch(() => null);
   const id = str(body?.id).trim();
   const name = str(body?.name).trim();
   if (id === "" || name === "") {

@@ -393,3 +393,116 @@ func TestSSHRequestGetsPhoneSignedCertificate(t *testing.T) {
 		t.Fatalf("临时身份 mode=%o", info.Mode().Perm())
 	}
 }
+
+// pairApprover 用全局配对令牌登记一台审批端（手机替身），返回它的设备令牌。
+func pairApprover(t *testing.T, baseURL string) string {
+	t.Helper()
+	request, err := http.NewRequest(http.MethodPost, baseURL+"/v1/device/pair", strings.NewReader(`{"name":"phone"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer pairing-token")
+	request.Header.Set("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var result struct {
+		DeviceToken string `json:"device_token"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || result.DeviceToken == "" {
+		t.Fatalf("pair status=%d token=%q", response.StatusCode, result.DeviceToken)
+	}
+	return result.DeviceToken
+}
+
+func newPairCode(t *testing.T, baseURL, approverToken string) string {
+	t.Helper()
+	request, err := http.NewRequest(http.MethodPost, baseURL+"/v1/device/pair-code", strings.NewReader("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+approverToken)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var result struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || result.Code == "" {
+		t.Fatalf("pair-code status=%d code=%q", response.StatusCode, result.Code)
+	}
+	return result.Code
+}
+
+// requesterName 从设备表里取请求端的名字——手机「设备」页看到的就是它。
+func requesterName(t *testing.T, baseURL, approverToken string) string {
+	t.Helper()
+	request, err := http.NewRequest(http.MethodGet, baseURL+"/v1/device/devices", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+approverToken)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var result struct {
+		Devices []struct {
+			Name string `json:"name"`
+			Role string `json:"role"`
+		} `json:"devices"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	for _, device := range result.Devices {
+		if device.Role == "requester" {
+			return device.Name
+		}
+	}
+	t.Fatal("设备表里没有请求端")
+	return ""
+}
+
+func TestPairNamesTheDevice(t *testing.T) {
+	cases := []struct {
+		name      string
+		requester string
+		args      []string
+		want      string
+	}{
+		{"不给名字就用 user@host", "tester@host", nil, "tester@host"},
+		{"显式 --name 覆盖", "tester@host", []string{"--name", "wsl-arch"}, "wsl-arch"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			server, _ := listBroker(t)
+			approver := pairApprover(t, server.URL)
+			code := newPairCode(t, server.URL, approver)
+			args := append([]string{"--code", code}, tc.args...)
+
+			stdout := captureStdout(t)
+			settings := cli.Settings{BrokerURL: server.URL, Requester: tc.requester}
+			if err := runPair(settings, filepath.Join(t.TempDir(), "config"), args); err != nil {
+				t.Fatal(err)
+			}
+			if got := requesterName(t, server.URL, approver); got != tc.want {
+				t.Fatalf("设备名=%q, want %q", got, tc.want)
+			}
+			if printed := stdout(); !strings.Contains(printed, tc.want) {
+				t.Fatalf("stdout 没打印设备名 %q: %s", tc.want, printed)
+			}
+		})
+	}
+}

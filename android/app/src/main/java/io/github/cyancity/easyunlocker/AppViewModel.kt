@@ -24,6 +24,7 @@ import io.github.cyancity.easyunlocker.data.ReservedItem
 import io.github.cyancity.easyunlocker.data.VaultField
 import io.github.cyancity.easyunlocker.data.VaultItem
 import io.github.cyancity.easyunlocker.data.VaultRepository
+import io.github.cyancity.easyunlocker.data.deviceDate
 import io.github.cyancity.easyunlocker.data.normalizeGatewayUrl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +34,12 @@ import java.util.Locale
 import java.util.UUID
 
 enum class Screen { Setup, Unlock, Vault, Item, Edit, Pair, Pairings, Settings, Pending, Approved, History, HistoryDetail, Import, Devices }
+
+/** 别的网关上有几条待批准。只报数量——批准必须在收到请求的那台网关上做，所以按钮是「切过去」。 */
+data class OtherPending(val pairingId: String, val count: Int)
+
+/** 其它网关的待批准多久查一次。它们只是角标，没必要跟当前网关一样 3 秒一轮。 */
+private const val OTHER_POLL_INTERVAL_MS = 10_000L
 
 data class UiState(
     val screen: Screen = Screen.Unlock,
@@ -71,8 +78,10 @@ data class UiState(
     val importSelected: Set<Int> = emptySet(),
     val importNotice: String = "",
     val lastImportAt: String = "",
-    val devices: List<PairedDevice> = emptyList(),
+    val devicesByPairing: Map<String, List<PairedDevice>> = emptyMap(),
+    val devicesErrorByPairing: Map<String, String> = emptyMap(),
     val devicesLoading: Boolean = false,
+    val otherPending: List<OtherPending> = emptyList(),
     val pairCode: String = "",
     val pairCodeExpiresAt: Long = 0,
     /** 每 +1 表示「把过期的推送通知收掉」；MainActivity 监听它调 Notifications.clearAll。 */
@@ -80,6 +89,10 @@ data class UiState(
 ) {
     /** 当前网关；空 = 未配对。UI 只关心这个，不关心列表本身。 */
     val activePairing: Pairing? get() = pairings.firstOrNull { it.id == activePairingId }
+    /** 当前网关的设备。按网关存，所以换网关时它立刻跟着换，不会留着上一台的。 */
+    val devices: List<PairedDevice> get() = devicesByPairing[activePairingId].orEmpty()
+    /** 当前网关 + 其它网关的待批准总数：底部 tab 上的角标。 */
+    val pendingBadge: Int get() = pending.size + otherPending.sumOf { it.count }
     val brokerUrl: String get() = activePairing?.url.orEmpty()
     val deviceName: String get() = activePairing?.name.orEmpty()
     val paired: Boolean get() = activePairing != null
@@ -95,6 +108,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val state = _state.asStateFlow()
     private var watching = false
     private var vaultHold = 0
+    /** 已经为哪台网关拉过设备表：设置页那行不该等到点进设备页才有内容，但也不必每次 onStart 都拉。 */
+    private var devicesLoadedFor = ""
+    /** 其它网关的待批准轮询：比主循环慢一档，且同一时刻只允许一个在跑。 */
+    private var lastOtherPollAt = 0L
+    private var otherPolling = false
 
     /** 最近一次拿到的 FCM 令牌：加新网关时也要给它注册一份。 */
     private var pushToken: String = ""
@@ -105,6 +123,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         override fun run() {
             if (!watching) return
             silentRefresh()
+            val now = System.currentTimeMillis()
+            if (now - lastOtherPollAt >= OTHER_POLL_INTERVAL_MS) {
+                lastOtherPollAt = now
+                pollOtherGateways()
+            }
             val wait = if (_state.value.pending.isNotEmpty()) 1000L else 3000L
             main.postDelayed(this, wait)
         }
@@ -113,8 +136,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun startWatching() {
         if (_state.value.activePairing != null && !watching) {
             watching = true
+            // 回前台先查一次别的网关，否则最多要等一个轮询间隔才知道那边有请求
+            lastOtherPollAt = 0L
             main.post(watch)
         }
+        loadDevicesIfStale()
     }
 
     fun stopWatching() {
@@ -229,6 +255,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             pending = if (switched) emptyList() else _state.value.pending,
             selectedPending = if (switched) null else _state.value.selectedPending,
         )
+        if (switched) onActiveChanged()
     }
 
     fun lock() {
@@ -624,6 +651,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         toast = if (added) "已添加网关" else "已更新网关",
                         screen = Screen.Pairings,
                     )
+                    onActiveChanged()
                     startWatching()
                 }
             }.onFailure { error ->
@@ -639,6 +667,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 切换网关：只换「往哪儿发」，本地条目一点不动。旧网关的待批准请求属于它，先清掉。 */
     fun switchPairing(id: String) {
+        applySwitch(id, openPending = false)
+    }
+
+    /** 「别的网关有待批准」的入口：切过去，并把那条请求直接展开，省一次点击。 */
+    fun switchPairingForPending(id: String) {
+        if (id == _state.value.activePairingId) {
+            silentRefresh(forceOpen = true, showLoading = _state.value.pending.isEmpty())
+            return
+        }
+        applySwitch(id, openPending = true)
+    }
+
+    private fun applySwitch(id: String, openPending: Boolean) {
         val target = _state.value.pairings.firstOrNull { it.id == id } ?: return
         if (id == _state.value.activePairingId) return
         prefs.activePairingId = id
@@ -652,8 +693,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             message = "",
             toast = "已切到 ${target.name}",
         )
+        onActiveChanged()
         startWatching()
-        silentRefresh(showLoading = true, allowAutoOpen = false)
+        silentRefresh(showLoading = true, allowAutoOpen = openPending)
+    }
+
+    /**
+     * 当前网关变了。设备是按网关存的（`devicesByPairing`），所以「设备」那一行天然跟着换；
+     * 这里只负责把新网关的设备拉一遍、并把它从「其它网关待批准」里摘掉。
+     */
+    private fun onActiveChanged() {
+        _state.value = _state.value.copy(
+            otherPending = _state.value.otherPending.filterNot { it.pairingId == _state.value.activePairingId },
+        )
+        devicesLoadedFor = _state.value.activePairingId
+        loadDevices()
+    }
+
+    /** 冷启动/回前台补一次设备表：设置页「设备」那行不该等到点进设备页才有内容。 */
+    private fun loadDevicesIfStale() {
+        val id = _state.value.activePairingId
+        if (id.isEmpty() || id == devicesLoadedFor) return
+        devicesLoadedFor = id
+        loadDevices()
     }
 
     /** 改网关显示名。只改本地标签；Broker 那边记住的还是当初配对时的设备名。 */
@@ -679,9 +741,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             activePairingId = nextActive,
             pending = if (wasActive) emptyList() else _state.value.pending,
             selectedPending = if (wasActive) null else _state.value.selectedPending,
+            devicesByPairing = _state.value.devicesByPairing - id,
+            devicesErrorByPairing = _state.value.devicesErrorByPairing - id,
+            otherPending = _state.value.otherPending.filterNot { it.pairingId == id },
             toast = "已删除网关",
         )
         if (nextActive.isEmpty()) stopWatching() else if (wasActive) {
+            onActiveChanged()
             startWatching()
             silentRefresh(allowAutoOpen = false)
         }
@@ -699,20 +765,40 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         loadDevices()
     }
 
+    /**
+     * 拉所有已配网关的设备表：设备属于各自的 Broker，设备页要看全，设置页只显示当前那台的条数。
+     *
+     * 不走 `bg{}`——它的 catch 会 releaseVault 并弹全局错误，一台下线的网关不该影响整机。
+     * 单台失败只记在那台的 error 上（401 = 那边的审批端已经失效）。
+     */
     fun loadDevices() {
-        val pairing = _state.value.activePairing ?: run {
-            _state.value = _state.value.copy(devicesLoading = false)
+        val pairings = _state.value.pairings.filter { it.deviceToken.isNotBlank() }
+        if (pairings.isEmpty()) {
+            _state.value = _state.value.copy(
+                devicesByPairing = emptyMap(),
+                devicesErrorByPairing = emptyMap(),
+                devicesLoading = false,
+            )
             return
         }
-        bg {
-            val result = runCatching { BrokerClient(pairing.url, pairing.deviceToken).devices() }
+        _state.value = _state.value.copy(devicesLoading = true)
+        Thread {
+            val lists = mutableMapOf<String, List<PairedDevice>>()
+            val errors = mutableMapOf<String, String>()
+            pairings.forEach { pairing ->
+                runCatching { BrokerClient(pairing.url, pairing.deviceToken).devices() }
+                    .onSuccess { lists[pairing.id] = it }
+                    .onFailure { errors[pairing.id] = it.message ?: "加载设备失败" }
+            }
             main.post {
-                result.fold(
-                    onSuccess = { list -> _state.value = _state.value.copy(devices = list, devicesLoading = false) },
-                    onFailure = { e -> _state.value = _state.value.copy(devicesLoading = false, message = e.message ?: "加载设备失败") },
+                val alive = _state.value.pairings.map { it.id }.toSet()
+                _state.value = _state.value.copy(
+                    devicesByPairing = _state.value.devicesByPairing.filterKeys { it in alive } + lists,
+                    devicesErrorByPairing = _state.value.devicesErrorByPairing.filterKeys { it in alive } + errors,
+                    devicesLoading = false,
                 )
             }
-        }
+        }.start()
     }
 
     /** 生成一次性配对码：10 分钟有效，新机器 `easyGet pair --code <码>` 用。 */
@@ -748,7 +834,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             main.post {
                 result.fold(
                     onSuccess = { (expiresAt, list) ->
-                        _state.value = _state.value.copy(devices = list, toast = "已续期，有效期至 ${expiresAt.take(10)}")
+                        _state.value = _state.value.copy(
+                            devicesByPairing = _state.value.devicesByPairing + (pairing.id to list),
+                            toast = "已续期，有效期至 ${deviceDate(expiresAt)}",
+                        )
                     },
                     onFailure = { e -> _state.value = _state.value.copy(message = e.message ?: "续期失败") },
                 )
@@ -756,9 +845,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 给设备改名。改的是 Broker 上的设备名，所有看设备列表的地方都跟着变。 */
-    fun renameDevice(id: String, name: String) {
-        val pairing = _state.value.activePairing ?: return
+    /** 给设备改名。改的是那台 Broker 上的设备名；设备页按网关分组，所以要带上是哪台网关。 */
+    fun renameDevice(pairingId: String, id: String, name: String) {
+        val pairing = _state.value.pairings.firstOrNull { it.id == pairingId } ?: return
         val trimmed = name.trim()
         if (trimmed.isEmpty()) {
             _state.value = _state.value.copy(toast = "名字不能为空")
@@ -778,10 +867,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 撤销一台设备。撤销当前这台 = 登出：本机配对记录一并清掉。 */
-    fun revokeDevice(id: String) {
-        val pairing = _state.value.activePairing ?: return
-        val isSelf = _state.value.devices.firstOrNull { it.id == id }?.current == true
+    /**
+     * 撤销一台设备（可以是别的网关上的）。撤销本机在那台的记录 = 从这台网点登出：
+     * 那条配对记录同时清掉，否则 App 会留着一张已经失效的令牌。
+     */
+    fun revokeDevice(pairingId: String, id: String) {
+        val pairing = _state.value.pairings.firstOrNull { it.id == pairingId } ?: return
+        val isSelf = _state.value.devicesByPairing[pairingId]?.firstOrNull { it.id == id }?.current == true
+        val wasActive = pairingId == _state.value.activePairingId
         bg {
             val result = runCatching { BrokerClient(pairing.url, pairing.deviceToken).revokeDevice(id) }
             main.post {
@@ -789,7 +882,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     onSuccess = {
                         if (isSelf) {
                             removePairing(pairing.id)
-                            _state.value = _state.value.copy(screen = Screen.Settings, toast = "已登出这台设备")
+                            _state.value = _state.value.copy(
+                                screen = if (wasActive) Screen.Settings else _state.value.screen,
+                                toast = "已登出这台设备",
+                            )
                         } else {
                             loadDevices()
                             _state.value = _state.value.copy(toast = "已撤销")
@@ -809,19 +905,58 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         silentRefresh(forceOpen = true, showLoading = true)
     }
 
+    /**
+     * 别的网关有没有待批准。只数数量、只写 `otherPending`：一台网关连不上不该影响整机，
+     * 所以这里既不走 `bg{}`（它的 catch 会 releaseVault + 弹全局错误），也不碰 offline。
+     */
+    private fun pollOtherGateways() {
+        val activeId = _state.value.activePairingId
+        val others = _state.value.pairings.filter { it.id != activeId && it.deviceToken.isNotBlank() }
+        if (others.isEmpty()) {
+            if (_state.value.otherPending.isNotEmpty()) {
+                _state.value = _state.value.copy(otherPending = emptyList())
+            }
+            return
+        }
+        if (otherPolling) return
+        otherPolling = true
+        Thread {
+            val found = buildList {
+                others.forEach { pairing ->
+                    val count = runCatching {
+                        BrokerClient(pairing.url, pairing.deviceToken).pending().count { it.state == "waiting" }
+                    }.getOrNull() ?: return@forEach
+                    if (count > 0) add(OtherPending(pairing.id, count))
+                }
+            }
+            main.post {
+                otherPolling = false
+                // 期间可能删了网关、或把它切成了当前网关（那就归主循环管）
+                val alive = _state.value.pairings.map { it.id }.toSet()
+                val nowActive = _state.value.activePairingId
+                _state.value = _state.value.copy(
+                    otherPending = found.filter { it.pairingId in alive && it.pairingId != nowActive },
+                )
+            }
+        }.start()
+    }
+
     private fun silentRefresh(
         forceOpen: Boolean = false,
         showLoading: Boolean = false,
         allowAutoOpen: Boolean = true,
     ) {
         val broker = client() ?: return
+        val pairingId = _state.value.activePairingId
         if (showLoading) _state.value = _state.value.copy(loading = true, offline = false)
         bg {
             val list = try {
                 broker.pending().filter { it.state == "waiting" }
             } catch (e: Exception) {
                 main.post {
-                    _state.value = _state.value.copy(loading = false, offline = true)
+                    if (_state.value.activePairingId == pairingId) {
+                        _state.value = _state.value.copy(loading = false, offline = true)
+                    }
                 }
                 return@bg
             }
@@ -842,6 +977,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val currentId = _state.value.selectedPending?.request_id
             val selected = mapped.firstOrNull { it.request_id == currentId } ?: mapped.firstOrNull()
             main.post {
+                // 请求飞行途中网关被切走了：这份结果属于旧网关，丢掉，别污染新网关的待批准
+                if (_state.value.activePairingId != pairingId) return@post
                 val prevIds = _state.value.pending.map { it.request_id }.toSet()
                 val arrived = mapped.any { it.request_id !in prevIds }
                 val open = forceOpen || (allowAutoOpen && arrived && mapped.isNotEmpty() && repo.isUnlocked())

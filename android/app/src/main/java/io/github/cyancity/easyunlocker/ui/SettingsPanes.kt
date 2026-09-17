@@ -49,6 +49,7 @@ import io.github.cyancity.easyunlocker.data.HistoryEntry
 import io.github.cyancity.easyunlocker.data.ImportOption
 import io.github.cyancity.easyunlocker.data.PairedDevice
 import io.github.cyancity.easyunlocker.data.Pairing
+import io.github.cyancity.easyunlocker.data.deviceDate
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -153,6 +154,7 @@ fun PairingsPane(
     state: UiState,
     onAdd: () -> Unit,
     onSwitch: (String) -> Unit,
+    onOpenPending: (String) -> Unit,
     onMenu: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -196,8 +198,11 @@ fun PairingsPane(
                         GatewayRow(
                             pairing = pairing,
                             active = pairing.id == state.activePairingId,
+                            // 其它网关攒着的待批准：批准必须在收到请求的那台上做，所以这里直接切过去
+                            pending = state.otherPending.firstOrNull { it.pairingId == pairing.id }?.count ?: 0,
                             last = i == state.pairings.lastIndex,
                             onSwitch = { onSwitch(pairing.id) },
+                            onOpenPending = { onOpenPending(pairing.id) },
                             onMenu = { onMenu(pairing.id) },
                         )
                     }
@@ -211,8 +216,10 @@ fun PairingsPane(
 private fun GatewayRow(
     pairing: Pairing,
     active: Boolean,
+    pending: Int,
     last: Boolean,
     onSwitch: () -> Unit,
+    onOpenPending: () -> Unit,
     onMenu: () -> Unit,
 ) {
     Row(
@@ -241,6 +248,21 @@ private fun GatewayRow(
         }
         if (active) {
             Chip("当前", ok = true)
+        } else if (pending > 0) {
+            Box(
+                Modifier
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Tokens.warn.copy(alpha = 0.14f))
+                    .border(1.dp, Tokens.warn, RoundedCornerShape(999.dp))
+                    .clickable(role = Role.Button, onClick = onOpenPending)
+                    .semantics { contentDescription = "切到此网关并查看待批准" }
+                    .padding(horizontal = 12.dp)
+                    .focusRing(18.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("$pending 条待批准", color = Tokens.warnText, fontSize = 13.sp, fontWeight = W650)
+            }
         } else {
             Box(
                 Modifier
@@ -939,14 +961,9 @@ fun AutoCloseSheet(current: Int, onPick: (Int) -> Unit) {
 
 // ---------- 设备管理：本机（审批端）与外部设备（请求端）分开 ----------
 
-private fun isoDate(iso: String): String =
-    runCatching {
-        java.time.Instant.parse(iso).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
-    }.getOrDefault(iso.take(10))
-
 private fun deviceMeta(device: PairedDevice): String {
-    val used = if (device.lastUsedAt.isBlank()) "从未使用" else "最后使用 ${isoDate(device.lastUsedAt)}"
-    return "$used · 有效期至 ${isoDate(device.expiresAt)}"
+    val used = if (device.lastUsedAt.isBlank()) "从未使用" else "最后使用 ${deviceDate(device.lastUsedAt)}"
+    return "$used · 有效期至 ${deviceDate(device.expiresAt)}"
 }
 
 @Composable
@@ -1062,8 +1079,8 @@ fun DevicesPane(
     onBack: () -> Unit,
     onAdd: () -> Unit,
     onRenew: () -> Unit,
-    onRename: (PairedDevice) -> Unit,
-    onRevoke: (PairedDevice) -> Unit,
+    onRename: (String, PairedDevice) -> Unit,
+    onRevoke: (String, PairedDevice) -> Unit,
     onDismissCode: () -> Unit,
     onToast: (String) -> Unit,
 ) {
@@ -1079,8 +1096,7 @@ fun DevicesPane(
     }
     val clipboard = LocalClipboardManager.current
     val codeLeft = ((state.pairCodeExpiresAt - now) / 1000).coerceAtLeast(0)
-    val self = state.devices.firstOrNull { it.current }
-    val external = state.devices.filterNot { it.current }
+    val activeId = state.activePairingId
 
     Column(Modifier.fillMaxSize()) {
         AppBar("设备", onBack)
@@ -1163,36 +1179,57 @@ fun DevicesPane(
                 )
                 Spacer(Modifier.height(10.dp))
             }
-            SectionTitle("这台手机（审批端）")
-            if (self != null) {
-                SelfDeviceCard(self, logoutArmed, onRenew = {
-                    logoutArmed = false
-                    onRenew()
-                }, onRename = {
-                    logoutArmed = false
-                    onRename(self)
-                }, onLogout = {
-                    if (logoutArmed) {
-                        logoutArmed = false
-                        onRevoke(self)
-                    } else {
-                        logoutArmed = true
+            // 设备属于各自的网关：一台一组，看全再决定撤销哪条。本机那台只在当前网关画成卡片
+            // （续期 / 登出这台只对当前网关有意义），别的网关一律按普通行列出。
+            state.pairings.forEachIndexed { index, pairing ->
+                val devices = state.devicesByPairing[pairing.id].orEmpty()
+                val error = state.devicesErrorByPairing[pairing.id]
+                val isActive = pairing.id == activeId
+                DeviceGroupHeader(pairing, isActive, top = if (index == 0) 0.dp else 26.dp)
+                when {
+                    error != null -> Text(
+                        error,
+                        color = Tokens.dangerText,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                    )
+                    devices.isEmpty() -> Text(
+                        if (state.devicesLoading) "加载中…" else "这台网关上还没有设备",
+                        color = Tokens.muted,
+                        fontSize = 13.sp,
+                    )
+                    else -> {
+                        val self = if (isActive) devices.firstOrNull { it.current } else null
+                        if (self != null) {
+                            SelfDeviceCard(self, logoutArmed, onRenew = {
+                                logoutArmed = false
+                                onRenew()
+                            }, onRename = {
+                                logoutArmed = false
+                                onRename(pairing.id, self)
+                            }, onLogout = {
+                                if (logoutArmed) {
+                                    logoutArmed = false
+                                    onRevoke(pairing.id, self)
+                                } else {
+                                    logoutArmed = true
+                                }
+                            })
+                            if (devices.size > 1) Spacer(Modifier.height(8.dp))
+                        }
+                        val others = devices.filterNot { it.id == self?.id }
+                        if (others.isNotEmpty()) {
+                            HairList {
+                                others.forEach { device ->
+                                    ExternalDeviceRow(
+                                        device,
+                                        onRename = { onRename(pairing.id, it) },
+                                        onRevoke = { onRevoke(pairing.id, it) },
+                                    )
+                                }
+                            }
+                        }
                     }
-                })
-            } else {
-                Text("未配对", color = Tokens.muted, fontSize = 13.sp)
-            }
-            SectionTitle("已配对设备", top = 22.dp)
-            if (external.isEmpty()) {
-                Text(
-                    "还没有外部设备。生成配对码，在新机器上运行 easyGet pair。",
-                    color = Tokens.muted,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                )
-            } else {
-                HairList {
-                    external.forEach { device -> ExternalDeviceRow(device, onRename, onRevoke) }
                 }
             }
             Text(
@@ -1213,14 +1250,32 @@ fun DevicesPane(
     }
 }
 
+/** 设备页的网关分组标题：名字 + 「当前」+ 地址。 */
 @Composable
-private fun SectionTitle(text: String, top: Dp = 18.dp) {
-    Text(
-        text.uppercase(),
-        color = Tokens.muted,
-        fontFamily = FontFamily.Monospace,
-        fontSize = 11.sp,
-        letterSpacing = 1.1.sp,
-        modifier = Modifier.padding(top = top, bottom = 8.dp),
-    )
+private fun DeviceGroupHeader(pairing: Pairing, active: Boolean, top: Dp) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = top, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            pairing.name,
+            color = Tokens.fg,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 15.sp,
+            fontWeight = W650,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (active) Chip("当前", ok = true)
+        Text(
+            gatewayHost(pairing.url),
+            color = Tokens.muted,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+    }
 }

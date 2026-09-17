@@ -522,7 +522,11 @@ func runPair(settings cli.Settings, configPath string, args []string) error {
 	if strings.TrimSpace(*code) == "" {
 		return errors.New("需要 --code（手机 App → 设置 → 设备 → 添加设备，10 分钟内有效）")
 	}
-	token, _, expiresAt, err := cli.PairClaim(settings.BrokerURL, *code, *name)
+	// 手机设备表里显示的就是这个名字；不给就落到 Broker 的 "device" 兜底，等于没名字。
+	if strings.TrimSpace(*name) == "" {
+		*name = settings.Requester
+	}
+	token, deviceName, expiresAt, err := cli.PairClaim(settings.BrokerURL, *code, *name)
 	if err != nil {
 		return err
 	}
@@ -530,7 +534,7 @@ func runPair(settings cli.Settings, configPath string, args []string) error {
 	if err := cli.WriteConfig(path, settings.BrokerURL, token); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stdout, "已配对：这台机器的令牌有效期至 %s\n配置写入 %s\n试一下：easyGet ping\n", expiresAt, path)
+	fmt.Fprintf(os.Stdout, "已配对：设备名 %s（手机「设备」页显示这个名字），令牌有效期至 %s\n配置写入 %s\n试一下：easyGet ping\n", deviceName, expiresAt, path)
 	return nil
 }
 
