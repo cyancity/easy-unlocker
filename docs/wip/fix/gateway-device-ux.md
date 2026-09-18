@@ -39,14 +39,14 @@
 - Android `assembleDebug` + `testDebugUnitTest` 通过（`DeviceTimeTest` 5 例 + `SshCertTest` 6 例）。
 - worker `tsc --noEmit` 通过；curl 实测 `/v1/device/devices` 返回 RFC3339、`/v1/device/rename` 从 400 变 200（用临时 approver 验完即撤销）。
 
-真机（2026-09-18 夜，realme，App 由用户指纹解锁）：
+真机（2026-09-18 夜，Android，App 由用户指纹解锁）：
 
 | 用例 | 结果 |
 |---|---|
 | 1 设备页有效期 | ✅ 显示 `2027-03-13` / `2027-03-14` / `2027-03-17`，不再是裸数字 |
 | 2 切网关后设置页设备数 | ✅ arm（5 台）↔ cf（2 台）切换后立刻跟着换，不用点进设备页 |
-| 3 CF 上改名 | ✅ `device` → `yolodeMacBook-Pro`，列表立即生效 |
-| 4 设备页跨网关视图 + 撤销 | ✅ 同屏看到 arm/cf 两组；在 arm 是**非当前**网关时撤销设备成功（用一次性设备 `revoke-me` 验），cf 组不受影响。另经 arm 审计日志（`device=47bb20aa` = `yolo@yolodeMacBook-Pro.local`）确认本机残留就是 `macbook-pro`，已撤销 |
+| 3 CF 上改名 | ✅ `device` → `<本机名>`，列表立即生效 |
+| 4 设备页跨网关视图 + 撤销 | ✅ 同屏看到 arm/cf 两组；在 arm 是**非当前**网关时撤销设备成功（用一次性设备 `revoke-me` 验），cf 组不受影响。另经网关审计日志（`device=<id>` = `user@<本机名>`）确认本机残留就是那条同名记录，已撤销 |
 | 5 多网关待批准 | ✅ 手机在 arm 时向 cf 发请求 → cf 行显示「1 条待批准」、待批准页出现「cf 有 1 条待批准 / 切过去」、底部角标 1 → 点「切过去」自动切到 cf 并展开请求 |
 | 冷启动设备表 | ✅ `wrangler tail` 看到冷启动（未解锁）时发出 1 次 `GET /v1/device/devices` 且不重复，同时 `/v1/device/push-token` 对两台网关各注册一次 |
 
@@ -57,7 +57,7 @@
 
 ## 顺带发现（待用户决定，本轮没动）
 
-- arm broker 的设备表里有两个非当前 approver：`arm`、`hermes-server`。按设计「同租户新 approver 上岗会踢掉旧的」，这两条属于历史残留；如果它们的令牌还在别的机器上，那台机器就能批准 arm 的请求。要不要清由用户定。
+- 网关的设备表里有两个非当前 approver（不是当前审批端）。按设计「同租户新 approver 上岗会踢掉旧的」，这两条属于历史残留；如果它们的令牌还在别的机器上，那台机器就能批准 arm 的请求。要不要清由用户定。
 - 本机换上新构建的 `easyGet` 后**打不通 arm**（旧二进制可以）：arm 上部署的 broker 早于当前 main，新 CLI 带的字段被它的 `DisallowUnknownFields` 拒了。CLI 现在指向 CF，不受影响；哪天要回 arm 得先把 arm 上的 broker 重新部署。
 
 ## 下一步
