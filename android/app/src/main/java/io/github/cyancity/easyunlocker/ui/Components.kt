@@ -632,14 +632,16 @@ fun CommandBlock(text: String) {
             .background(Tokens.fg)
             .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
-        Text("❯", color = Tokens.ok, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+        // ❯ 跟第一行文字的基线对齐（对齐 iOS 的 .firstTextBaseline）。Row 默认顶对齐，
+        // 命令折行时 ❯ 会贴在第一行的字顶，看起来偏高。
+        Text("❯", color = Tokens.ok, fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.alignByBaseline())
         Text(
             text,
             color = Tokens.surface,
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             lineHeight = 18.sp,
-            modifier = Modifier.padding(start = 8.dp),
+            modifier = Modifier.padding(start = 8.dp).alignByBaseline(),
         )
     }
 }
