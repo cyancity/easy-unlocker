@@ -356,14 +356,16 @@ final class AppState: ObservableObject {
 
     func selectPending(_ req: PendingRequest) { selectedPending = req }
 
-    func selectItem(_ id: String) {
-        guard let cur = selectedPending else { return }
+    /// 就地新建后的回填：按 requestId 把新条目选进发起表单的那张卡，不串到别的 pending。
+    /// 请求已不在（过期/被撤/已处理）时不动任何卡——条目照常留库。
+    func selectItem(_ id: String, forRequest requestId: String) {
+        guard let cur = pending.first(where: { $0.requestId == requestId }) else { return }
         let item = items.first { $0.id == id }
         var next = cur
         next.selectedItemId = id
         next.selectedField = item.map { VaultField.defaultFor(secret: $0.secret, note: $0.note) }
-        pending = pending.map { $0.requestId == cur.requestId ? next : $0 }
-        selectedPending = next
+        pending = pending.map { $0.requestId == requestId ? next : $0 }
+        if selectedPending?.requestId == requestId { selectedPending = next }
     }
 
     func selectField(_ field: VaultField) {
@@ -537,6 +539,11 @@ final class AppState: ObservableObject {
     private func releaseVault() {
         vaultHold = max(0, vaultHold - 1)
     }
+
+    /// 表单弹层持锁：就地新建期间用户会切去密码管理器复制密钥，不能被「切后台即上锁」打断。
+    /// 复用 vaultHold 引用计数，语义与批准中持锁相同；弹层一关立刻恢复自动上锁。
+    func holdVaultForSheet() { holdVault() }
+    func releaseVaultForSheet() { releaseVault() }
 
     /// UI 测试模式：`-ui-testing` 启动参数或 `UI_TESTING=1` 环境变量关闭生物识别闸门与
     /// Face ID 快捷路径——真机/模拟器上生物信号不可靠，测试要确定性。

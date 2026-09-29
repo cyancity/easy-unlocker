@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,7 +28,10 @@ import kotlinx.coroutines.delay
 
 private sealed class Sheet {
     data object None : Sheet()
-    data object Picker : Sheet()
+    /** 选条目面板：带着发起它的请求上下文（requestId 回写选中、prefill 透传给新建表单）。 */
+    data class Picker(val requestId: String, val prefill: String, val forCA: Boolean) : Sheet()
+    /** 批准页就地新建条目：requestId 是「保存成功后要选进哪张卡」的绑定。 */
+    data class PendingAdd(val requestId: String, val prefill: String, val forCA: Boolean) : Sheet()
     data object AutoClose : Sheet()
     data object Password : Sheet()
     data object Export : Sheet()
@@ -60,7 +64,10 @@ fun AppScreen(
     onRenameGateway: (String, String) -> Unit,
     onRemoveGateway: (String) -> Unit,
     onRefresh: () -> Unit,
-    onSelectItem: (String) -> Unit,
+    onSelectItemFor: (String, String) -> Unit,
+    onSavePendingAdd: (String, String, String, String) -> Boolean,
+    onHoldVault: () -> Unit,
+    onReleaseVault: () -> Unit,
     onSelectField: (String) -> Unit,
     onCreatePairCode: () -> Unit,
     onClearPairCode: () -> Unit,
@@ -122,6 +129,12 @@ fun AppScreen(
             onToastShown()
         }
     }
+    // 新建条目弹层开着时持住库锁：切去密码管理器复制密钥是主路径，回来表单要原样。
+    val pendingAddOpen = sheet is Sheet.PendingAdd
+    DisposableEffect(pendingAddOpen) {
+        if (pendingAddOpen) onHoldVault()
+        onDispose { if (pendingAddOpen) onReleaseVault() }
+    }
     LaunchedEffect(state.screen, state.autoCloseSeconds) {
         if (state.screen == Screen.Approved && state.autoCloseSeconds > 0) {
             delay(state.autoCloseSeconds * 1000L)
@@ -163,7 +176,11 @@ fun AppScreen(
                 )
                 Screen.Pending -> PendingPane(
                     state = state,
-                    onChange = { sheet = Sheet.Picker },
+                    onPick = { req -> sheet = Sheet.Picker(req.request_id, req.item, req.mode == "sign") },
+                    onAddNew = { req ->
+                        onClearFormError()
+                        sheet = Sheet.PendingAdd(req.request_id, req.item, req.mode == "sign")
+                    },
                     onSelectField = onSelectField,
                     onRemember = onRemember,
                     onApprove = onApprove,
@@ -257,10 +274,26 @@ fun AppScreen(
             Box(Modifier.fillMaxSize()) {
                 SheetScrim(onDismiss = { sheet = Sheet.None }) {
                     when (val s = sheet) {
-                        Sheet.Picker -> PickerSheet(state.items) { id ->
-                            onSelectItem(id)
+                        is Sheet.Picker -> PickerSheet(
+                            items = state.items,
+                            forCA = s.forCA,
+                            onAddNew = {
+                                onClearFormError()
+                                sheet = Sheet.PendingAdd(s.requestId, s.prefill, s.forCA)
+                            },
+                        ) { id ->
+                            onSelectItemFor(s.requestId, id)
                             sheet = Sheet.None
                         }
+                        is Sheet.PendingAdd -> AddItemSheet(
+                            requestId = s.requestId,
+                            prefill = s.prefill,
+                            forCA = s.forCA,
+                            error = state.formError,
+                            onChange = onClearFormError,
+                            onCancel = { sheet = Sheet.None },
+                            onSave = onSavePendingAdd,
+                        )
                         is Sheet.Menu -> ItemMenuSheet(
                             onEdit = {
                                 sheet = Sheet.None

@@ -442,4 +442,99 @@ final class EasyUnlockerUITests: XCTestCase {
         XCTAssertEqual(resp.json?["status"] as? String, "approved", "\(resp.json ?? [:])")
         XCTAssertTrue((resp.json?["payload"] as? String ?? "").hasPrefix("v2."))
     }
+
+    /// T1 未匹配 → 选择面板「新建条目…」→ 名称预填 → 保存自动选中 → 密码批准
+    func testFInlineAddApprove() throws {
+        ensureVault()
+        addItem(name: "GH_TOKEN", secret: "ghp_e2e_secret_42") // 库非空才有「选择」面板路径（空库是直达）
+        pairGateway()
+        Self.tag = "ui-inline-add"
+        let itemName = "UI_NEW_KEY_\(Int(Date().timeIntervalSince1970))" // 全 epoch 秒，保证库里没有
+        let resp = postRequest([
+            "item": itemName, "mode": "write", "seal_public_key": Self.sealKey, "purpose": "e2e inline add",
+            "ttl": 120, "requester": Self.tag, "delivery": "ephemeral",
+        ])
+        openPending()
+        XCTAssertTrue(waitText("没有完全匹配的条目").exists)
+        tapButton("选择")
+        tapButton("新建条目") // dialog 按钮吃不稳 accessibilityIdentifier，按 label 找
+        let nameField = app.textFields["edit.name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 8), "新建表单没弹出")
+        XCTAssertEqual(nameField.value as? String, itemName, "名称应预填请求的 item")
+        let secretField = app.textFields["edit.secret"]
+        secretField.tap()
+        secretField.typeText("inline-secret-1")
+        dismissKbInSheet() // 收键盘再保存——焦点死在关闭的 sheet 里会盖住 tab bar
+        app.buttons["保存"].tap()
+        // 回批准页：新条目自动选中且名=请求名 → 完全匹配
+        XCTAssertTrue(waitText("完全匹配", timeout: 8).exists)
+        approveByPassword()
+        XCTAssertTrue(waitText("已放行", timeout: 15).exists)
+        awaitBroker(resp)
+        XCTAssertEqual(resp.json?["status"] as? String, "approved", "\(resp.json ?? [:])")
+        XCTAssertTrue((resp.json?["payload"] as? String ?? "").hasPrefix("v2."))
+    }
+
+    /// T3 表单开着时请求过期：保存仍写库、不回填任何卡；Broker 回 expired
+    func testGInlineAddExpire() throws {
+        ensureVault()
+        addItem(name: "GH_TOKEN", secret: "ghp_e2e_secret_42")
+        pairGateway()
+        Self.tag = "ui-inline-expire"
+        let itemName = "UI_LATE_\(Int(Date().timeIntervalSince1970))"
+        let resp = postRequest([
+            "item": itemName, "mode": "write", "seal_public_key": Self.sealKey, "purpose": "e2e expire during add",
+            "ttl": 8, "requester": Self.tag, "delivery": "ephemeral",
+        ])
+        openPending()
+        tapButton("选择")
+        tapButton("新建条目")
+        let nameField = app.textFields["edit.name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 8), "新建表单没弹出")
+        // 等背后待批准页变空态（sheet 不挡 AX 查询）再输密码保存
+        XCTAssertTrue(waitText("没有等待你的请求", timeout: 25).exists)
+        let secretField = app.textFields["edit.secret"]
+        secretField.tap()
+        secretField.typeText("late-secret")
+        dismissKbInSheet()
+        app.buttons["保存"].tap()
+        // 条目照存入库——切条目页能看到名字
+        tapTab("条目", verify: "条目")
+        XCTAssertTrue(waitText(itemName, timeout: 8).exists)
+        awaitBroker(resp, timeout: 40)
+        XCTAssertEqual(resp.json?["status"] as? String, "expired", "\(resp.json ?? [:])")
+    }
+
+    /// T4 撞名校验：表单内报错、弹层不关；取消后批准页原样
+    func testHInlineAddValidation() throws {
+        ensureVault()
+        addItem(name: "GH_TOKEN", secret: "ghp_e2e_secret_42")
+        pairGateway()
+        Self.tag = "ui-inline-conflict"
+        // 请求名直接用已有条目名——预填即撞车，省掉「清空再改名」的脆操作
+        let resp = postRequest([
+            "item": "GH_TOKEN", "mode": "write", "seal_public_key": Self.sealKey, "purpose": "e2e dup name",
+            "ttl": 120, "requester": Self.tag, "delivery": "ephemeral",
+        ])
+        openPending()
+        XCTAssertTrue(waitText("完全匹配").exists)
+        tapButton("改")
+        tapButton("新建条目")
+        let nameField = app.textFields["edit.name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 8), "新建表单没弹出")
+        let secretField = app.textFields["edit.secret"]
+        secretField.tap()
+        secretField.typeText("dup-secret")
+        dismissKbInSheet()
+        app.buttons["保存"].tap()
+        XCTAssertTrue(waitText("已经存在", timeout: 5).exists) // 撞名错误只报在表单内
+        XCTAssertTrue(nameField.exists, "校验失败时 sheet 不该关")
+        app.buttons["取消"].tap()
+        // 回批准页拒绝掉，别给后续用例留 pending
+        XCTAssertTrue(waitText("完全匹配", timeout: 6).exists)
+        tapButton("拒绝")
+        XCTAssertTrue(waitText("已拒绝", timeout: 15).exists)
+        awaitBroker(resp)
+        XCTAssertEqual(resp.json?["status"] as? String, "denied", "\(resp.json ?? [:])")
+    }
 }

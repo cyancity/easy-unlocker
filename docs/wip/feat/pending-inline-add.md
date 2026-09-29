@@ -20,14 +20,26 @@
 ## 当前状态
 
 - [x] 已完成: 交互流程定稿 + PRD（docs/design/PRD-pending-inline-add.md）
-- [ ] 进行中: 双端实现（Android / iOS 并行）
-- [ ] 待办: PARITY.md 同步；按 PRD §5 测试；对抗 review；提交推送
+- [x] 已完成: Android 实现（PickerSheet 新建入口/AddItemSheet/selectItemForRequest/addItemForPending/弹层持锁）
+- [x] 已完成: iOS 实现（confirmationDialog 新建入口/空库直开/ItemEditView 复用/selectItem forRequest/弹层持锁）+ 3 条 UITest
+- [x] 已完成: PARITY.md 同步
+- [x] 已完成: 对抗 review——修复 iOS 面板手选仍绑 selectedPending 的串卡隐患，删除双端旧 selectItem 死代码
+- [ ] 待办: 合并主线需用户验收
+
+## 验证结果
+
+- `go test ./...` / `go vet` / `go test -race`（协议零改动，全绿）
+- Android `./gradlew :app:assembleDebug` 通过；`:app:testDebugUnitTest` 通过（UP-TO-DATE）
+- iOS `xcodebuild ... build` 通过
+- iOS `xcodebuild ... test`（iPhone 17 模拟器 + 本地 broker 127.0.0.1:8787）：8/8 通过，含新增 testFInlineAddApprove（未匹配→新建→自动选中→手动批准→approved+v2 payload）、testGInlineAddExpire（表单开着请求过期→条目入库不选中→expired）、testHInlineAddValidation（重名→表单留错→取消→拒绝→denied）
+- Android 无 UI 测试设施：编译+单测+diff 人工核对矩阵；真机手工验收未做
 
 ## 下一步（接手指南）
 
 1. 读本 wip 与 PRD。
 2. `cd .worktree/pending-inline-add`；Android `cd android && ./gradlew :app:assembleDebug`；iOS `cd ios && xcodebuild -project EasyUnlocker.xcodeproj -scheme EasyUnlocker -destination 'platform=iOS Simulator,name=iPhone 17' build`。
 3. iOS e2e 前需起 `dist/broker --listen 127.0.0.1:8787 --pairing-token e2e-pair-token`。
+4. 等用户验收后按项目流程合并 main。
 
 ## 决策记录
 

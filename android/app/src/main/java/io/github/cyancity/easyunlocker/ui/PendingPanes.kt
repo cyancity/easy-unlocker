@@ -66,7 +66,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun PendingPane(
     state: UiState,
-    onChange: () -> Unit,
+    onPick: (PendingRequest) -> Unit,
+    onAddNew: (PendingRequest) -> Unit,
     onSelectField: (String) -> Unit,
     onRemember: (Boolean) -> Unit,
     onApprove: () -> Unit,
@@ -139,9 +140,9 @@ fun PendingPane(
                         if (listRequest) {
                             ListBody(state, req, now)
                         } else if (signRequest) {
-                            SignBody(state, req, now, onChange)
+                            SignBody(state, req, now, onPick, onAddNew)
                         } else {
-                            PendingBody(state, req, now, onChange, onSelectField, onRemember)
+                            PendingBody(state, req, now, onPick, onAddNew, onSelectField, onRemember)
                         }
                     }
                 }
@@ -367,7 +368,8 @@ private fun PendingBody(
     state: UiState,
     req: PendingRequest,
     now: Long,
-    onChange: () -> Unit,
+    onPick: (PendingRequest) -> Unit,
+    onAddNew: (PendingRequest) -> Unit,
     onSelectField: (String) -> Unit,
     onRemember: (Boolean) -> Unit,
 ) {
@@ -431,7 +433,10 @@ private fun PendingBody(
                 .clip(shape)
                 .background(Tokens.surface)
                 .border(1.dp, if (unmatched) Tokens.warn else Tokens.borderStrong, shape)
-                .clickable(role = Role.Button, onClick = onChange)
+                .clickable(role = Role.Button) {
+                    // 空库+未匹配：面板里反正没有可选项，跳过它直开新建表单。
+                    if (unmatched && state.items.isEmpty()) onAddNew(req) else onPick(req)
+                }
                 .padding(horizontal = 16.dp)
                 .focusRing(14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -445,7 +450,7 @@ private fun PendingBody(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                if (chosen != null) "改" else "选择",
+                if (chosen != null) "改" else if (state.items.isEmpty()) "新建" else "选择",
                 color = when {
                     unmatched -> Tokens.warnText
                     else -> Tokens.accentText
@@ -473,7 +478,7 @@ private fun PendingBody(
         }
         DeliveryNotice(req.delivery, req.target)
         if (state.items.isEmpty()) {
-            Text("库里还没有条目，先去添加一条再回来。", color = Tokens.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 16.dp))
+            Text("库里还没有条目，点上面的「新建」就地加一条。", color = Tokens.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 16.dp))
         }
         if (chosen != null && chosen.name.lowercase() != req.item.lowercase()) {
             Row(
@@ -521,7 +526,8 @@ private fun SignBody(
     state: UiState,
     req: PendingRequest,
     now: Long,
-    onChange: () -> Unit,
+    onPick: (PendingRequest) -> Unit,
+    onAddNew: (PendingRequest) -> Unit,
 ) {
     val chosen = state.items.firstOrNull { it.id == req.selectedItemId }
     val chosenKey = chosen?.let { caKeyOf(it) }
@@ -593,7 +599,10 @@ private fun SignBody(
                 .clip(shape)
                 .background(Tokens.surface)
                 .border(1.dp, if (chosenKey == null) Tokens.warn else Tokens.borderStrong, shape)
-                .clickable(role = Role.Button, onClick = onChange)
+                .clickable(role = Role.Button) {
+                    // 空库+未匹配：面板里反正没有可选项，跳过它直开新建表单。
+                    if (chosen == null && state.items.isEmpty()) onAddNew(req) else onPick(req)
+                }
                 .padding(horizontal = 16.dp)
                 .focusRing(14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -617,7 +626,7 @@ private fun SignBody(
                 }
             }
             Text(
-                if (chosen != null) "改" else "选择",
+                if (chosen != null) "改" else if (state.items.isEmpty()) "新建" else "选择",
                 color = when {
                     chosen != null -> Tokens.accentText
                     else -> Tokens.warnText
@@ -641,7 +650,7 @@ private fun SignBody(
             )
         }
         if (state.items.isEmpty()) {
-            Text("库里还没有条目，先去添加一条 CA 私钥再回来。", color = Tokens.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 16.dp))
+            Text("库里还没有条目，点上面的「新建」就地加一条 CA。", color = Tokens.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 16.dp))
         }
         SignNotice(req)
         Spacer(Modifier.height(26.dp))
@@ -889,9 +898,37 @@ private fun DeliveryNotice(delivery: String, target: String) {
 }
 
 @Composable
-fun PickerSheet(items: List<VaultItem>, onChoose: (String) -> Unit) {
-    Text("放出哪一条", color = Tokens.fg, fontSize = 17.sp, fontWeight = W650, lineHeight = 24.sp, modifier = Modifier.padding(start = 6.dp, end = 6.dp, bottom = 12.dp))
+fun PickerSheet(
+    items: List<VaultItem>,
+    forCA: Boolean,
+    onAddNew: () -> Unit,
+    onChoose: (String) -> Unit,
+) {
+    Text(
+        if (forCA) "用哪条 CA 签" else "放出哪一条",
+        color = Tokens.fg,
+        fontSize = 17.sp,
+        fontWeight = W650,
+        lineHeight = 24.sp,
+        modifier = Modifier.padding(start = 6.dp, end = 6.dp, bottom = 12.dp),
+    )
     HairList {
+        // 新建入口固定在第一行：未匹配/已匹配/sign 三种场景下位置都一样。
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button, onClick = onAddNew)
+                .padding(vertical = 12.dp),
+        ) {
+            Text(
+                "＋ 新建条目",
+                color = Tokens.accentText,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        if (items.isNotEmpty()) Box(Modifier.fillMaxWidth().height(1.dp).background(Tokens.border))
         items.forEachIndexed { i, it ->
             Column(
                 Modifier
@@ -910,6 +947,75 @@ fun PickerSheet(items: List<VaultItem>, onChoose: (String) -> Unit) {
             if (i != items.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(Tokens.border))
         }
     }
+}
+
+/**
+ * 批准页就地新建条目：字段与编辑页同款。保存成功后由 ViewModel 把新条目
+ * 选进发起这张表单的请求卡（requestId 绑定）；校验/写库失败只把错误留在表单内，不关弹层。
+ */
+@Composable
+fun AddItemSheet(
+    requestId: String,
+    prefill: String,
+    forCA: Boolean,
+    error: String,
+    onChange: () -> Unit,
+    onCancel: () -> Unit,
+    onSave: (String, String, String, String) -> Boolean,
+) {
+    var name by remember(prefill) { mutableStateOf(prefill) }
+    var secret by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    Text("新建条目", color = Tokens.fg, fontSize = 17.sp, fontWeight = W650, lineHeight = 24.sp, modifier = Modifier.padding(start = 6.dp, end = 6.dp, bottom = 12.dp))
+    if (forCA) {
+        Text(
+            "这条会当 CA 用——密码或备注里要有一把 OpenSSH ed25519 私钥（可点下面生成）。",
+            color = Tokens.muted,
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            modifier = Modifier.padding(start = 6.dp, end = 6.dp, bottom = 14.dp),
+        )
+    }
+    Field(name, { name = it; onChange() }, "名称", error = error.isNotBlank(), placeholder = "OPENAI_API_KEY")
+    Field(secret, { secret = it; onChange() }, "密码 · 短值", error = error.isNotBlank(), placeholder = "粘贴 token / 密码")
+    Field(
+        note,
+        { note = it; onChange() },
+        "备注 · 长文本（可空）",
+        error = error.isNotBlank(),
+        placeholder = "SSH 私钥、整段 .env 放这里",
+        multiline = true,
+    )
+    if (OpenSshKey.looksLikePrivateKey(note)) {
+        Text(
+            "备注里是一把 SSH 私钥——这条可以当 CA 给 easyGet ssh 签证书。",
+            color = Tokens.accentText,
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+    } else {
+        Text(
+            "要当 SSH CA 用的话：",
+            color = Tokens.muted,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        QuietButton("生成一把 SSH CA 私钥填进备注", modifier = Modifier.padding(top = 8.dp)) {
+            note = OpenSshKey.generate().toPem()
+            onChange()
+        }
+    }
+    if (error.isNotBlank()) {
+        Text(error, color = Tokens.dangerText, fontSize = 12.sp, fontWeight = W650, lineHeight = 18.sp, modifier = Modifier.padding(top = 14.dp))
+    }
+    Spacer(Modifier.height(18.dp))
+    PrimaryButton("保存并选用") {
+        // 保存失败时错误已经在表单里，弹层留着让用户改；成功才关。
+        if (onSave(requestId, name, secret, note)) onCancel()
+    }
+    Spacer(Modifier.height(10.dp))
+    QuietButton("取消", onClick = onCancel)
 }
 
 @Composable
