@@ -1098,7 +1098,7 @@ fun ApprovedPane(item: String, requester: String, onBack: () -> Unit) {
                     if (list) {
                         "只有条目名，没有任何值离开手机。"
                     } else {
-                        "值已用本次 ask 的临时公钥密封，Broker 只转发、解不开。"
+                        "值已用本次 ask 的临时公钥密封，\nBroker 只转发、解不开。"
                     },
                     color = Tokens.muted,
                     fontSize = 12.sp,

@@ -565,9 +565,9 @@ struct ResultView: View {
                  ? (result.isList
                     ? "只有条目名，没有任何值离开手机。"
                     : (result.isCert
-                       ? "签出去的是一张短时证书，CA 私钥没离开手机。"
-                       : "值已用本次 ask 的临时公钥密封，Broker 只转发、解不开。"))
-                 : "终端会以非零退出，Agent 不会拿到任何值。")
+                       ? "签出去的是一张短时证书，\nCA 私钥没离开手机。"
+                       : "值已用本次 ask 的临时公钥密封，\nBroker 只转发、解不开。"))
+                 : "终端会以非零退出，\nAgent 不会拿到任何值。")
                 .font(.system(size: 14))
                 .foregroundStyle(Tokens.muted)
                 .lineSpacing(4)
