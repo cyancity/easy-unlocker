@@ -32,7 +32,8 @@
 - Android `./gradlew :app:assembleDebug` 通过；`:app:testDebugUnitTest` 通过（UP-TO-DATE）
 - iOS `xcodebuild ... build` 通过
 - iOS `xcodebuild ... test`（iPhone 17 模拟器 + 本地 broker 127.0.0.1:8787）：8/8 通过，含新增 testFInlineAddApprove（未匹配→新建→自动选中→手动批准→approved+v2 payload）、testGInlineAddExpire（表单开着请求过期→条目入库不选中→expired）、testHInlineAddValidation（重名→表单留错→取消→拒绝→denied）
-- Android 无 UI 测试设施：编译+单测+diff 人工核对矩阵；真机手工验收未做
+- Android 无 UI 测试设施：编译+单测+diff 人工核对矩阵
+- Android 真机验收（25019PNF3C / Android 16，adb 驱动）：`easyGet env DEVIN_SELFTEST_X9 --exec` 发不存在条目请求 → 「没有完全匹配的条目」→ 选择 → 面板首行「＋ 新建条目」→ 表单名称已预填 → 填 dummy secret → 保存并选用 → 回卡显示「完全匹配」+ 密码字段选中 + 放出按钮激活（未自动批准）→ 手动「放出（不落盘）」→ 指纹 → 「已放行」→ 请求方收到 dummy 值，exit 0。测试条目已删。
 
 ## 下一步（接手指南）
 
