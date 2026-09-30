@@ -380,25 +380,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = _state.value.copy(screen = Screen.Edit, editingId = id, formError = "")
     }
 
-    fun saveItem(name: String, secret: String, note: String = "") {
+    /** 条目保存规则：名必填、密码/备注至少一项、名称+别名全库唯一（忽略大小写）。返回错误文案，null = 通过。 */
+    private fun validateItem(editingId: String?, name: String, secret: String, note: String): String? {
         val trimmed = name.trim()
-        when {
-            trimmed.isEmpty() -> {
-                _state.value = _state.value.copy(formError = "给它一个名称。")
-                return
-            }
-            secret.isBlank() && note.isBlank() -> {
-                _state.value = _state.value.copy(formError = "密码和备注至少填一个。")
-                return
-            }
-        }
-        val editing = _state.value.editingId
+        if (trimmed.isEmpty()) return "给它一个名称。"
+        if (secret.isBlank() && note.isBlank()) return "密码和备注至少填一个。"
         val taken = _state.value.items
-            .filter { it.id != editing }
+            .filter { it.id != editingId }
             .flatMap { listOf(it.name) + it.aliases }
             .map { it.lowercase() }
-        if (trimmed.lowercase() in taken) {
-            _state.value = _state.value.copy(formError = "这个名称或别名已经存在，库内必须唯一。")
+        if (trimmed.lowercase() in taken) return "这个名称或别名已经存在，库内必须唯一。"
+        return null
+    }
+
+    fun saveItem(name: String, secret: String, note: String = "") {
+        val trimmed = name.trim()
+        val editing = _state.value.editingId
+        validateItem(editing, trimmed, secret, note)?.let {
+            _state.value = _state.value.copy(formError = it)
             return
         }
         runCatching {
@@ -1015,16 +1014,45 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = _state.value.copy(selectedPending = req)
     }
 
-    fun selectItem(id: String) {
-        val cur = _state.value.selectedPending ?: return
-        val item = _state.value.items.firstOrNull { it.id == id }
-        val next = cur.copy(
-            selectedItemId = id,
+    /**
+     * 把条目选进指定的那张请求卡（requestId 绑定）。多条 pending 时不串卡；
+     * 请求已不在（过期/被撤/已处理）则不动——新条目留在库里但不选给其它请求。
+     */
+    fun selectItemForRequest(requestId: String, itemId: String) {
+        val target = _state.value.pending.firstOrNull { it.request_id == requestId } ?: return
+        val item = _state.value.items.firstOrNull { it.id == itemId }
+        val next = target.copy(
+            selectedItemId = itemId,
             selectedField = item?.let { VaultField.defaultFor(it.secret, it.note) },
         )
         _state.value = _state.value.copy(
-            pending = _state.value.pending.map { if (it.request_id == cur.request_id) next else it },
-            selectedPending = next,
+            pending = _state.value.pending.map { if (it.request_id == requestId) next else it },
+            selectedPending = if (_state.value.selectedPending?.request_id == requestId) next else _state.value.selectedPending,
+        )
+    }
+
+    /**
+     * 批准页就地新建：写库 → 找回新条目 → 选进发起表单的那张卡（可能已过期，那就只入库不选中）。
+     * 校验/写库失败只写 formError、返回 false——弹层留在原地让用户改。
+     */
+    fun addItemForPending(requestId: String, name: String, secret: String, note: String): Boolean {
+        val trimmed = name.trim()
+        validateItem(null, trimmed, secret, note)?.let {
+            _state.value = _state.value.copy(formError = it)
+            return false
+        }
+        return runCatching { repo.add(trimmed, secret, note) }.fold(
+            onSuccess = {
+                val items = repo.items()
+                val added = items.firstOrNull { it.name == trimmed }
+                _state.value = _state.value.copy(items = items, formError = "", toast = "已添加")
+                if (added != null) selectItemForRequest(requestId, added.id)
+                true
+            },
+            onFailure = {
+                _state.value = _state.value.copy(formError = it.message ?: "无法保存")
+                false
+            },
         )
     }
 
@@ -1092,6 +1120,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         vaultHold = (vaultHold - 1).coerceAtLeast(0)
         if (vaultHold == 0 && !watching) lock()
     }
+
+    /**
+     * 弹层用的库锁包装：批准页新建条目弹层开着时持住锁，用户切去密码管理器
+     * 复制密钥回来表单还在；弹层一关（保存/取消/点遮罩）立刻恢复自动上锁。
+     */
+    fun holdVaultForSheet() = holdVault()
+
+    fun releaseVaultForSheet() = releaseVault()
 
     fun clearIncoming() {
         if (_state.value.incoming) _state.value = _state.value.copy(incoming = false)

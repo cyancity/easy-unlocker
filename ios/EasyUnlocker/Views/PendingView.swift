@@ -12,12 +12,23 @@ func fmtTtl(_ seconds: Int) -> String {
     }
 }
 
+/// 「就地新建条目」弹层上下文：记下是为哪张请求卡建的（requestId 绑定，多条 pending 不串卡）、
+/// 预填名（请求的 item）、是否当 CA 用（sign 请求）。
+struct AddItemContext: Identifiable {
+    let id = UUID()
+    let requestId: String
+    let prefill: String
+    let forCA: Bool
+}
+
 /// 待批准（screens/pending.html）—— 审批闭环核心屏。
 /// 普通请求 / #items 名单 / sign 证书 三种 body 共用一张请求卡。
 struct PendingView: View {
     @EnvironmentObject var state: AppState
     @State private var now = Date()
-    @State private var picking = false
+    // 开着选择面板的那张卡——面板开着的几秒里请求可能过期/换成下一条，照 self.req 会绑错卡
+    @State private var pickingReq: PendingRequest? = nil
+    @State private var pendingAdd: AddItemContext? = nil
     @State private var passwordMode = false
     @State private var password = ""
     @State private var bioBusy = false
@@ -93,12 +104,32 @@ struct PendingView: View {
                 if state.result != nil { state.dismissResult() }
             }
         }
-        .confirmationDialog(req?.mode == "sign" ? "用哪条 CA 签" : "放出哪一条",
-                            isPresented: $picking, titleVisibility: .visible) {
+        .confirmationDialog(pickingReq?.mode == "sign" ? "用哪条 CA 签" : "放出哪一条",
+                            isPresented: Binding(get: { pickingReq != nil },
+                                                 set: { if !$0 { pickingReq = nil } }),
+                            titleVisibility: .visible) {
+            // 就地新建入口固定面板第一行（对齐安卓「＋ 新建条目」首行）
+            Button("新建条目…") {
+                guard let r = pickingReq else { return }
+                let ctx = AddItemContext(requestId: r.requestId, prefill: r.item, forCA: r.mode == "sign")
+                // dialog 收起动画没完就弹 sheet 会被系统吞掉——错半拍再置 context
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { pendingAdd = ctx }
+            }
             ForEach(state.items) { item in
-                Button(item.name) { state.selectItem(item.id) }
+                // 绑打开面板那张卡（requestId），它过期了也不能错选到顶替上来的下一条
+                Button(item.name) { if let r = pickingReq { state.selectItem(item.id, forRequest: r.requestId) } }
             }
             Button("取消", role: .cancel) {}
+        }
+        .sheet(item: $pendingAdd) { ctx in
+            NavigationStack {
+                ItemEditView(editing: nil, initialName: ctx.prefill, forCA: ctx.forCA) { item in
+                    state.selectItem(item.id, forRequest: ctx.requestId)
+                }
+            }
+            // 表单开着时 App 切后台不能上锁（要去密码管理器复制密钥）——出现持锁，消失释放
+            .onAppear { state.holdVaultForSheet() }
+            .onDisappear { state.releaseVaultForSheet() }
         }
     }
 
@@ -222,14 +253,21 @@ struct PendingView: View {
                 .foregroundStyle(chosen == nil ? Color(red: 0.55, green: 0.42, blue: 0.02) : (exact ? Tokens.accentActive : Tokens.muted))
         }
         IGroup {
-            Button { picking = true } label: {
+            Button {
+                if chosen == nil && state.items.isEmpty {
+                    // 空库时面板里只有「新建/取消」，直接开表单省一跳
+                    pendingAdd = AddItemContext(requestId: req.requestId, prefill: req.item, forCA: isCA)
+                } else {
+                    pickingReq = req
+                }
+            } label: {
                 HStack {
                     Text(chosen?.name ?? (isCA ? "选择当 CA 的条目" : "没有完全匹配的条目"))
                         .font(.mono(14, weight: .medium))
                         .foregroundStyle(chosen == nil ? Color(red: 0.55, green: 0.42, blue: 0.02) : Tokens.fg)
                         .lineLimit(1)
                     Spacer()
-                    Text(chosen == nil ? "选择" : "改")
+                    Text(chosen == nil ? (state.items.isEmpty ? "新建" : "选择") : "改")
                         .font(.system(size: 14))
                         .foregroundStyle(Tokens.accent)
                     Image(systemName: "chevron.right")
@@ -307,7 +345,7 @@ struct PendingView: View {
             }
         }
         if state.items.isEmpty {
-            FootNote(text: "库里还没有条目，先去添加一条再回来。", alignLeft: true)
+            FootNote(text: "库里还没有条目——点上面的「新建」就地加一条。", alignLeft: true)
         }
         DeliveryNotice(delivery: req.delivery, target: req.target)
     }
@@ -361,7 +399,7 @@ struct PendingView: View {
             FootNote(text: "这条的密码/备注里没有 OpenSSH ed25519 私钥，当不了 CA。", alignLeft: true)
         }
         if state.items.isEmpty {
-            FootNote(text: "库里还没有条目，先去添加一条 CA 私钥再回来。", alignLeft: true)
+            FootNote(text: "库里还没有条目——点上面的「新建」加一条 CA 私钥。", alignLeft: true)
         }
         Notice(tone: .info, title: "CA 私钥不出手机",
                bodyText: "对方拿到的只是一张 \(fmtTtl(req.certTtl))内可登录 \(req.sshUser) 的证书；CA 私钥本身不会被放出。证书只在登录那一刻校验，已建立的会话不受影响。")
@@ -527,9 +565,9 @@ struct ResultView: View {
                  ? (result.isList
                     ? "只有条目名，没有任何值离开手机。"
                     : (result.isCert
-                       ? "签出去的是一张短时证书，CA 私钥没离开手机。"
-                       : "值已用本次 ask 的临时公钥密封，Broker 只转发、解不开。"))
-                 : "终端会以非零退出，Agent 不会拿到任何值。")
+                       ? "签出去的是一张短时证书，\nCA 私钥没离开手机。"
+                       : "值已用本次 ask 的临时公钥密封，\nBroker 只转发、解不开。"))
+                 : "终端会以非零退出，\nAgent 不会拿到任何值。")
                 .font(.system(size: 14))
                 .foregroundStyle(Tokens.muted)
                 .lineSpacing(4)

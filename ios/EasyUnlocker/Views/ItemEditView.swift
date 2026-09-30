@@ -5,6 +5,10 @@ import SwiftUI
 struct ItemEditView: View {
     @EnvironmentObject var state: AppState
     let editing: VaultItem?
+    /// 批准页就地新建专用：预填名 / CA 提示行 / 保存成功后把新条目回调给请求卡（自动选中）。
+    var initialName: String = ""
+    var forCA: Bool = false
+    var onAdded: ((VaultItem) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
@@ -19,6 +23,14 @@ struct ItemEditView: View {
 
     var body: some View {
         ScrollView {
+            if forCA {
+                Text("这条会当 CA 用——密码或备注里要有一把 OpenSSH ed25519 私钥（可点下面生成）。")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Tokens.muted)
+                    .lineSpacing(3)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 8)
+            }
             FormLabel("名称")
             IGroup {
                 TextField("OPENAI_API_KEY", text: $name)
@@ -129,6 +141,8 @@ struct ItemEditView: View {
                 name = editing.name
                 secret = editing.secret
                 note = editing.note
+            } else if name.isEmpty {
+                name = initialName // 就地新建：预填请求的 item 名
             }
         }
     }
@@ -138,6 +152,11 @@ struct ItemEditView: View {
             error = err
         } else {
             dismissKeyboard()
+            // 就地新建：把刚入库的条目回填给批准页——名字是唯一的，按名找回（saveItem 存的是 trim 后的）
+            if let onAdded,
+               let added = state.items.first(where: { $0.name == name.trimmingCharacters(in: .whitespaces) }) {
+                onAdded(added)
+            }
             state.showToast(editing == nil ? "已添加" : "已保存")
             dismiss()
         }
