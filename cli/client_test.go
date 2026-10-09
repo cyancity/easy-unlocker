@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -96,8 +97,10 @@ func TestClientWritePathEndToEndWithoutPlaintextResponse(t *testing.T) {
 	if err != nil || string(material) != secret {
 		t.Fatalf("target contents mismatch: length=%d err=%v", len(material), err)
 	}
-	if mode := fileMode(t, target).Perm(); mode != 0o600 {
-		t.Fatalf("target mode=%o", mode)
+	if runtime.GOOS != "windows" {
+		if mode := fileMode(t, target).Perm(); mode != 0o600 {
+			t.Fatalf("target mode=%o", mode)
+		}
 	}
 	if hidden, _ := filepath.Glob(filepath.Join(filepath.Dir(target), ".easy-unlocker-write-*")); len(hidden) != 0 {
 		t.Fatalf("temporary files remain: %v", hidden)
@@ -105,6 +108,9 @@ func TestClientWritePathEndToEndWithoutPlaintextResponse(t *testing.T) {
 }
 
 func TestLoadSettingsRejectsWorldReadableConfig(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows 下无 unix 权限位，私有性由 NTFS ACL 承担")
+	}
 	path := filepath.Join(t.TempDir(), "config")
 	if err := os.WriteFile(path, []byte("broker_url=http://127.0.0.1:8787\npairing_token=fixture-token\n"), 0o644); err != nil {
 		t.Fatal(err)

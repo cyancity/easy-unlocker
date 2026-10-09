@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -12,6 +13,9 @@ import (
 )
 
 func TestGeneratedSSHIdentityStaysLocalAndProtected(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("依赖 HOME 隔离与 unix 权限位；Windows 由 USERPROFILE/NTFS ACL 承担")
+	}
 	directory := t.TempDir()
 	// 让「找现成密钥」的候选路径（$HOME/.ssh/id_ed25519 等）落进临时目录，
 	// 否则作者机器上有自己的 SSH key 时，这里会复用现成身份而不是生成临时的。
@@ -72,8 +76,10 @@ func TestPublicCertificateCanBeRefreshed(t *testing.T) {
 	if string(value) != "second\n" {
 		t.Fatalf("certificate was not refreshed")
 	}
-	if mode := fileMode(t, path).Perm(); mode != 0o644 {
-		t.Fatalf("certificate mode=%o", mode)
+	if runtime.GOOS != "windows" {
+		if mode := fileMode(t, path).Perm(); mode != 0o644 {
+			t.Fatalf("certificate mode=%o", mode)
+		}
 	}
 }
 

@@ -480,6 +480,9 @@ func defaultSSHUser() string {
 	if value := os.Getenv("USER"); value != "" {
 		return value
 	}
+	if value := os.Getenv("USERNAME"); value != "" {
+		return value
+	}
 	if current, err := user.Current(); err == nil && current.Username != "" {
 		return current.Username
 	}
@@ -597,10 +600,11 @@ RELEASE MODES (choose exactly one)
 ENVIRONMENT GIVEN TO --exec
   EASYGET_SECRET       the value itself (rename with --env-name MY_VAR)
   EASYGET_ITEM         the item name you asked for
-  EASYGET_SECRET_FD    /dev/fd/3 — an anonymous fd holding the same bytes, for tools
-                       that insist on a file path (oci key_file, ssh -i, ...).
-                       The backing file is unlinked immediately, so there is no path
-                       to find on disk; the fd disappears when the child exits.
+  EASYGET_SECRET_FD    a readable stream holding the same bytes, for tools that
+                       insist on a file path (oci key_file, ssh -i, ...).
+                       unix: /dev/fd/3 — an anonymous fd, unlinked immediately.
+                       Windows: a private temp file in the per-user temp dir,
+                       deleted when the child exits.
 
 FLAGS
   --for "<reason>"     required; shown on the phone so the user knows why

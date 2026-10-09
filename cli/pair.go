@@ -64,6 +64,7 @@ func WriteConfig(configPath, brokerURL, token string) error {
 		_ = os.Remove(name)
 		return errors.New("无法替换配置文件")
 	}
+	hardenPrivateFile(configPath)
 	return nil
 }
 
