@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <title>easy-unlocker</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+  <nav>
+    <div class="brand">easy<span class="dim">/</span>unlocker</div>
+    <button data-page="approve" class="nav-btn">批准 <span class="badge" id="pending-badge" style="display:none"></span></button>
+    <button data-page="vault" class="nav-btn">库 <span class="badge" id="lock-badge" style="display:none">锁</span></button>
+    <button data-page="request" class="nav-btn">取密</button>
+    <button data-page="devices" class="nav-btn">设备</button>
+    <div class="spacer"></div>
+    <div class="status-dot" id="status-dot"></div>
+  </nav>
+  <main>
+
+    <!-- 首次运行 / 未配对 -->
+    <section class="page" id="page-setup">
+      <h1>连接到手机</h1>
+      <p class="sub">在手机上打开 easy-unlocker → 设备 → 「扫码配对」对准二维码即可，无需手输。</p>
+      <div class="card">
+        <label class="field"><span>Broker 地址</span>
+          <input type="text" id="pair-broker" placeholder="https://broker.example.com" />
+        </label>
+        <div class="row" style="margin-bottom:14px">
+          <button class="btn" id="qr-btn">生成配对二维码</button>
+          <button class="btn quiet" id="show-manual">手动输配对码</button>
+        </div>
+        <div id="qr-area" style="display:none; text-align:center">
+          <div class="qr-frame"><img id="qr-img" /></div>
+          <div class="small muted mono" id="qr-msg" style="margin-top:14px; letter-spacing:1.1px">等待手机扫码…</div>
+        </div>
+        <div id="manual-area" style="display:none">
+          <label class="field"><span>配对码（一次性，手机上生成）</span>
+            <input type="text" id="pair-code" class="mono" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" />
+          </label>
+          <button class="btn" id="pair-btn">配对</button>
+          <span class="small muted" id="pair-msg" style="margin-left:12px"></span>
+        </div>
+      </div>
+      <div class="card small muted">
+        只想当取密端？手机扫码时选「取凭据角色」即可——同一界面，手机上选不同角色。<br/>
+        完全离线不想连 broker：直接关闭本应用即可，库文件可手动放进配置目录。
+      </div>
+    </section>
+
+    <!-- 锁屏门禁：approver 配对后未解锁时整应用只有这一页 -->
+    <section class="page" id="page-lock">
+      <div class="lock-wrap">
+        <div class="lock-glyph mono">eu</div>
+        <h1 style="text-align:center">解锁凭据库</h1>
+        <p class="sub" id="lock-sub" style="text-align:center">本 session 只需解锁一次——锁屏、重启或退出后才会重新上锁。</p>
+        <div class="card">
+          <label class="field"><span>解锁密码或恢复码</span>
+            <input type="password" id="lock-input" class="mono" autocomplete="off" />
+          </label>
+          <div class="row">
+            <button class="btn" id="lock-unlock-btn" style="flex:1">解锁</button>
+          </div>
+          <div class="small muted" id="lock-msg" style="margin-top:12px; text-align:center"></div>
+          <div class="small muted" style="margin-top:14px; text-align:center" id="lock-sync-row">
+            本地还没有库？<button class="link" id="lock-sync-btn">从服务器同步</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 待批准 -->
+    <section class="page" id="page-approve">
+      <h1>待批准</h1>
+      <p class="sub" id="approve-sub">长轮询由 broker 侧承担；这里每 3 秒扫一次新请求。</p>
+      <div id="pending-list"></div>
+    </section>
+
+    <!-- 库 -->
+    <section class="page" id="page-vault">
+      <h1>凭据库</h1>
+      <p class="sub" id="vault-sub"></p>
+      <div id="vault-locked" class="card">
+        <div class="small muted">库已锁上——回到解锁页输入密码。</div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn" id="goto-lock-btn">去解锁</button>
+          <button class="btn quiet" id="sync-btn">从服务器同步</button>
+        </div>
+      </div>
+      <div id="vault-open" style="display:none">
+        <div class="row" style="margin-bottom:14px">
+          <span class="small muted" id="vault-meta"></span>
+          <span style="flex:1"></span>
+          <button class="btn quiet" id="sync-btn-2">同步</button>
+          <button class="btn quiet" id="lock-btn">锁上</button>
+        </div>
+        <div id="item-list"></div>
+      </div>
+    </section>
+
+    <!-- 取密 -->
+    <section class="page" id="page-request">
+      <h1>取密</h1>
+      <p class="sub">向批准端（手机 / 另一台桌面）请求一条凭据。批准后直接进剪贴板，不落盘。</p>
+      <div class="card">
+        <label class="field"><span>条目名 / 别名</span>
+          <input type="text" id="req-item" class="mono" list="req-item-list" />
+          <datalist id="req-item-list"></datalist>
+        </label>
+        <label class="field"><span>用途（批准端能看到）</span>
+          <input type="text" id="req-purpose" placeholder="例如：登录 prod 数据库" />
+        </label>
+        <label class="field"><span>有效期（秒，10–3600）</span>
+          <input type="number" id="req-ttl" value="300" />
+        </label>
+        <button class="btn" id="req-btn">发起请求</button>
+        <span class="small" id="req-msg" style="margin-left:12px"></span>
+      </div>
+    </section>
+
+    <!-- 设备 -->
+    <section class="page" id="page-devices">
+      <h1>设备</h1>
+      <p class="sub">同 vault 租户下所有已配对设备。撤销即夺牌。</p>
+      <div class="card">
+        <table id="device-table"><thead>
+          <tr><th>名称</th><th>角色</th><th>最近活跃</th><th></th></tr>
+        </thead><tbody></tbody></table>
+      </div>
+      <div class="card small">
+        <div class="row">
+          <span class="muted">本机：</span><span class="mono" id="self-name"></span>
+          <span style="flex:1"></span>
+          <button class="btn danger" id="unpair-btn">解除本机配对</button>
+        </div>
+        <div class="muted" style="margin-top:8px">解除后本机令牌作废、本地 vault 缓存清空，等同于退出登录。</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -24,6 +24,9 @@ node_modules/
 __pycache__/
 *.pyc
 dist/
+# Wails 桌面端的前端产物是手写源文件（go:embed 内嵌），不是构建输出——必须入库
+!desktop/frontend/dist/
+!desktop/frontend/dist/**
 build/
 target/
 .venv/
@@ -52,6 +55,6 @@ desktop/build/
 desktop/easy-unlocker
 .dist/
 .phone-backup/
-desktop
+desktop/desktop
 desktop.exe~
 check-events.ps1
