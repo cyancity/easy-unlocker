@@ -87,3 +87,15 @@
 
 - `go build` 根 module + desktop(production tag) + broker linux/arm64 ✅
 - worker `tsc` ✅；Android `assembleDebug` ✅（同签名 `adb install -r` 无损覆盖）
+
+## 追加 2（验收修复）：门禁 + 推送缺口
+
+- **approve 静默失败** → 前端 catch 吞错；现在失败弹 toast 报原因。
+- **库锁定门禁**：approver 未解锁时整应用只剩解锁页（导航/批准全部挡住）；
+  requester 不受限。锁屏事件/手动 Lock 一律回门禁页。
+- **推送缺口修复**：`repo.setPassword`/`clearPassword` 只写 password.wrap 不触发
+  onSaved → VM 层补 pushVaultQuiet；`openVault` 解锁成功后也推一次——
+  老库（功能上线前建的）此前从未同步过，这是 broker 404 的根因。
+- **UI 重构**：oklch token 逐字对齐 android Theme.kt（dark/light 双套，
+  prefers-color-scheme 跟随系统）；修 mixOklch 权重方向（quiet=14% 淡彩
+  非 86% 实色）；按钮 nowrap 修 CJK 竖排；req-card 渐变改左侧 accent 条。

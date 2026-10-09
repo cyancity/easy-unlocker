@@ -311,6 +311,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setPassword(password: String) {
         bg {
             repo.setPassword(password)
+            // password.wrap 是 wrap 文件不是 vault 写——persist 不会触发 onSaved，得手推。
+            pushVaultQuiet()
             main.post {
                 _state.value = _state.value.copy(hasPassword = true, toast = "解锁密码已设置")
             }
@@ -319,6 +321,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearPassword() {
         repo.clearPassword()
+        pushVaultQuiet()
         _state.value = _state.value.copy(hasPassword = false, toast = "解锁密码已清除")
     }
 
@@ -340,6 +343,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun openVault(preferred: Screen? = null) {
+        // 开库即推一次密文上 broker：老库/换机库可能从没同步过，桌面端解锁全靠它。
+        pushVaultQuiet()
         val wantPending = preferred == Screen.Pending ||
             _state.value.fromNotification ||
             _state.value.pending.isNotEmpty()
