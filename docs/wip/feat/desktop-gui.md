@@ -61,3 +61,29 @@
 - `cli/pair.go`
 - `desktop/`（全部新增）
 - `android/.../SettingsPanes.kt`、`BrokerClient.kt`、`VaultRepository.kt`
+
+## 追加（2025-10-11）：QR 扫码配对
+
+- 新端点：`POST /v1/pair/offer`（approver 半拍）+ `GET /v1/pair/offer/{session}`（公开轮询）。
+  双实现同步：Go 走 `internal/boxpayload` 密封，worker 走 `worker/src/box.ts`（WebCrypto
+  X25519/HKDF/AES-GCM，类型定义不认 X25519 → `as any` 断言）。
+- 密封内容 = grant JSON `{device_token, role, name}`（非裸 token：requester 无权
+  列设备反查角色）；session 作 AAD，5min TTL、取一次即焚。
+- 桌面：`desktop/pairqr.go`（go-qrcode 出 data URI，轮询 2s）+ 前端 setup 页
+  按钮/QR 图/状态。配对成功照旧双写 easyGet 配置。
+- Android：`ScanPane.kt`（CameraX + ML Kit barcode），设备页「扫码配对桌面」入口；
+  `AppViewModel.pairOffer` 校验 `kind="eu-pair"` 且 QR 的 broker 必须等于当前网关
+  （防跨服务器挂令牌）。新依赖：camera-camera2/lifecycle/view 1.4.1、mlkit
+  barcode-scanning 17.3.0；manifest 加 CAMERA 权限。
+- QR 只含 `{v,kind,broker,s,k,n}`，不含凭据；拍屏无风险。
+
+## 部署状态（验收中）
+
+- arm-free（arm.yolooo.cloud）broker 已升 `v2026.09.16-25-ge085b1e-dirty-qrpair`，
+  `/v1/pair/offer` 路由上线（无参 400 = 存活）。
+- 回滚：二进制备份在 `~/easy-unlocker/dist/broker.rollback-*`。
+
+## 验证结果（追加）
+
+- `go build` 根 module + desktop(production tag) + broker linux/arm64 ✅
+- worker `tsc` ✅；Android `assembleDebug` ✅（同签名 `adb install -r` 无损覆盖）

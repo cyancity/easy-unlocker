@@ -14,6 +14,7 @@
 | 设备角色（approver/requester） | ✅ | ✅ | |
 | 配对码（pair-code → claim） | ✅ | ✅ | 绑租户+角色；claim 响应回 `role` |
 | vault 密文同步 `GET/POST /v1/vault` | ✅ | ✅ | 租户内 opaque blob，≤2MiB；Go 版落 `data/vaults.json`，worker 落 DO storage |
+| QR 配对 `POST+GET /v1/pair/offer` | ✅ | ✅ | 密封 grant（X25519+HKDF+AES-GCM，session 作 AAD），5min TTL 取一次即焚；worker 侧走 WebCrypto |
 | 设备列表/撤销/续期 | ✅ | ✅ | 租户内；时间字段两端都是 RFC3339（worker 早先透传 epoch 毫秒，已对齐） |
 | 设备改名 `POST /v1/device/rename` | ✅ | ✅ | 租户内，approver |
 | `GET /v1/version`（release tag 上报） | ✅ | ✅ | worker 报 wrangler vars 的 `CLI_VERSION`，发版后需同步 |
@@ -40,6 +41,7 @@
 | 库初始化生成 vault_id + 导出/导入沿用 | ✅ | ✅ | 老库解锁时补写并落盘 |
 | 设备管理：列表（只读） | ✅ | ✅ | |
 | 配对码角色选择（requester / 桌面批准端） | ✅ | ❌ | Android 设备页两个按钮；`approver` 码不触发换机独占 |
+| 扫码配对桌面（CameraX + ML Kit） | ✅ | ❌ | 设备页「扫码配对桌面」→ 校验 kind/broker → `POST /v1/pair/offer` |
 | vault 密文上传同步 | ✅ | ❌ | 开库/保存/导入后自动推 `POST /v1/vault` |
 | 设备管理：配对码/撤销/续期 | ✅ | ✅ | |
 | 设备管理：改名 | ✅ | ✅ | /v1/device/rename |
@@ -64,6 +66,7 @@
 | 能力 | 状态 | 备注 |
 |---|---|---|
 | 配对码配对（requester / approver 皆可） | ✅ | 填 broker + 手机上的一次性码；成功后令牌同时写进 easyGet 配置，CLI 立即可用 |
+| QR 配对（生成码 + 轮询 offer） | ✅ | 一次性 X25519 密钥对；密封 grant 解出令牌，轮询 2s，5min TTL；手动输码仍兜底 |
 | 发起 write 请求（GUI 当 requester） | ✅ | 批准结果进剪贴板，不落盘 |
 | 待批准轮询 + 批准/拒绝（approver） | ✅ | 3s 轮询；密封走 v2 boxpayload，与手机同路径 |
 | vault 密文同步下载 + 本地解锁 | ✅ | 密码 wrap 先试，恢复码兜底；明文只活内存 |

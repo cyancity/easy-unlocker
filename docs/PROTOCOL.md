@@ -56,12 +56,22 @@
 | `POST /v1/device/push-token` | approver | `{token}` → `{status:"ok"}`，注册 FCM token |
 | `GET /v1/vault` | approver | 本租户整库密文 → `{blob, wrap?, updated_at}`；未同步过返回 404 |
 | `POST /v1/vault` | approver | `{blob, wrap?}` → `{status:"ok",updated_at}`。opaque 密文，broker 不解码；请求体 ≤2MiB |
+| `POST /v1/pair/offer` | approver | `{session, pub, name, role?}` → `{status:"ok"}`。QR 配对的手机半拍：在**本租户**下建一个设备，把 `{device_token, role, name}` 用 `pub`（桌面 X25519 公钥）密封后挂到 session 上，5 分钟有效、取一次即焚。省略 role = `approver` |
 
 ### 设备配对（无凭据入口）
 
 | 端点 | 认证 | 说明 |
 |---|---|---|
 | `POST /v1/pair/claim` | — | `{code, name}` → `{device_token, name, role, expires_at}`。response `role` 即配对码里烧录的角色 |
+| `GET /v1/pair/offer/{session}` | — | → `{envelope}`（v2 boxpayload 密封的 grant JSON）；无 offer/已过期返回 404。**响应只有密文**——拍到 QR 也拿不到令牌 |
+
+#### QR 配对时序（手机扫桌面）
+
+1. 桌面生成一次性 X25519 密钥对 + 随机 session，QR 内容为 `{"v":1,"kind":"eu-pair","broker":"<url>","s":"<session>","k":"<X25519 pub>","n":"<桌面名>"}`
+2. 手机扫码 → 校验 `kind` 与 broker 一致性 → `POST /v1/pair/offer`
+3. 桌面轮询 `GET /v1/pair/offer/{session}` → `boxpayload.Open` 出 `{device_token, role, name}` → 落本地配置（并同步写 easyGet 配置）
+
+QR 本身不含任何凭据；令牌只经密封信道到桌面私钥持有者。session 是 offer 的 AAD，重放到别的会话解不开。
 
 ### 运维
 

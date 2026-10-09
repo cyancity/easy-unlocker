@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cyancity/easy-unlocker/internal/boxpayload"
 	"github.com/cyancity/easy-unlocker/internal/protocol"
 	"github.com/cyancity/easy-unlocker/internal/securepayload"
 )
@@ -63,6 +64,7 @@ type Server struct {
 	pending   map[string]*pendingRequest
 	devices   map[string]deviceRecord
 	pairCodes map[string]pairCode
+	offers    map[string]pairOffer
 	vaults    map[string]vaultBlob
 	vaultFile string
 	// pendingByKey 按 request_key 索引 pending：断线重连时同 key 续等原请求。
@@ -215,6 +217,7 @@ func NewServer(config ServerConfig) (*Server, error) {
 		pending:       make(map[string]*pendingRequest),
 		pendingByKey:  make(map[string]*pendingRequest),
 		pairCodes:     make(map[string]pairCode),
+		offers:        make(map[string]pairOffer),
 		devices:       make(map[string]deviceRecord),
 		vaults:        make(map[string]vaultBlob),
 	}
@@ -269,6 +272,10 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		s.handleDevicePairCode(w, r)
 	case r.URL.Path == "/v1/pair/claim":
 		s.handlePairClaim(w, r)
+	case r.URL.Path == "/v1/pair/offer":
+		s.handlePairOffer(w, r)
+	case strings.HasPrefix(r.URL.Path, "/v1/pair/offer/"):
+		s.handlePairOfferPoll(w, r)
 	case r.URL.Path == "/v1/device/devices":
 		s.handleDeviceList(w, r)
 	case r.URL.Path == "/v1/device/revoke":
@@ -790,6 +797,132 @@ func (s *Server) handlePairClaim(w http.ResponseWriter, r *http.Request) {
 		"role":         device.role(),
 		"expires_at":   device.ExpiresAt.Format(time.RFC3339),
 	})
+}
+
+// pairOffer 是扫码配对的暂存单：桌面把公钥贴进 QR，手机扫码后让 broker
+// 给这台机器发一张设备令牌，令牌用桌面公钥密封——任何人拿到 QR 也只看到
+// 公钥和 session，没有对应私钥解不开 envelope。
+type pairOffer struct {
+	envelope string
+	expires  time.Time
+}
+
+const pairOfferTTL = 5 * time.Minute
+
+// POST /v1/pair/offer（approver）：{session, pub, name?, role?} → {status, expires_at}
+// 在 caller 租户下创建设备，令牌密封进 offer 等桌面来取。role 默认 approver——
+// 扫码配对就是为桌面批准端设计的；requester 角色也允许（配对码的兄弟通道）。
+func (s *Server) handlePairOffer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, protocol.Response{Status: protocol.StatusFailed, Message: "method not allowed"})
+		return
+	}
+	var body struct {
+		Session string `json:"session"`
+		Pub     string `json:"pub"`
+		Name    string `json:"name"`
+		Role    string `json:"role"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		writeJSON(w, http.StatusBadRequest, protocol.Response{Status: "invalid_request", Message: "invalid body"})
+		return
+	}
+	session := strings.TrimSpace(body.Session)
+	if len(session) < 16 || len(session) > 128 {
+		writeJSON(w, http.StatusBadRequest, protocol.Response{Status: "invalid_request", Message: "invalid session"})
+		return
+	}
+	pub, err := boxpayload.ParsePublic(body.Pub)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, protocol.Response{Status: "invalid_request", Message: "invalid pub"})
+		return
+	}
+	role := strings.TrimSpace(body.Role)
+	if role == "" {
+		role = deviceRoleApprover
+	}
+	if role != deviceRoleRequester && role != deviceRoleApprover {
+		writeJSON(w, http.StatusBadRequest, protocol.Response{Status: "invalid_request", Message: "invalid role"})
+		return
+	}
+	name := strings.TrimSpace(body.Name)
+	if name == "" {
+		name = "desktop"
+	}
+	if len(name) > 64 {
+		name = name[:64]
+	}
+	s.mu.Lock()
+	caller, ok := s.authorizedDeviceLocked(r.Header.Get("Authorization"))
+	if !ok || caller.role() != deviceRoleApprover {
+		s.mu.Unlock()
+		writeJSON(w, http.StatusUnauthorized, protocol.Response{Status: "unauthorized", Message: "approver device required"})
+		return
+	}
+	now := time.Now().UTC()
+	for key, offer := range s.offers {
+		if offer.expires.Before(now) {
+			delete(s.offers, key)
+		}
+	}
+	raw := make([]byte, 24)
+	if _, err := rand.Read(raw); err != nil {
+		s.mu.Unlock()
+		writeJSON(w, http.StatusServiceUnavailable, protocol.Response{Status: protocol.StatusFailed, Message: "cannot create device token"})
+		return
+	}
+	token := hex.EncodeToString(raw)
+	device := s.newDeviceLocked(name, role)
+	device.Tenant = caller.tenant()
+	// 信封里装的不止令牌：角色与设备名一并密封下发，桌面拿到即知自己是什么角色，
+	// 不需要再用新令牌去反查（requester 角色本来就查不了设备列表）。
+	grant, err := json.Marshal(map[string]string{
+		"device_token": token,
+		"role":         device.role(),
+		"name":         device.Name,
+	})
+	if err != nil {
+		s.mu.Unlock()
+		writeJSON(w, http.StatusServiceUnavailable, protocol.Response{Status: protocol.StatusFailed, Message: "cannot encode grant"})
+		return
+	}
+	envelope, err := boxpayload.Seal(pub, session, grant)
+	if err != nil {
+		s.mu.Unlock()
+		writeJSON(w, http.StatusServiceUnavailable, protocol.Response{Status: protocol.StatusFailed, Message: "cannot seal token"})
+		return
+	}
+	s.devices[token] = device
+	if err := s.saveDevicesLocked(); err != nil {
+		s.mu.Unlock()
+		writeJSON(w, http.StatusServiceUnavailable, protocol.Response{Status: protocol.StatusFailed, Message: "cannot persist device"})
+		return
+	}
+	expires := now.Add(pairOfferTTL)
+	s.offers[session] = pairOffer{envelope: envelope, expires: expires}
+	s.mu.Unlock()
+	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "expires_at": expires.Format(time.RFC3339)})
+}
+
+// GET /v1/pair/offer/{session}（无鉴权）：offer 是一次性的，读到即删；
+// 响应只有密封 envelope，没有桌面私钥的人拿到也只是一段密文。
+func (s *Server) handlePairOfferPoll(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, protocol.Response{Status: protocol.StatusFailed, Message: "method not allowed"})
+		return
+	}
+	session := strings.TrimPrefix(r.URL.Path, "/v1/pair/offer/")
+	s.mu.Lock()
+	offer, ok := s.offers[session]
+	if ok {
+		delete(s.offers, session)
+	}
+	s.mu.Unlock()
+	if !ok || offer.expires.Before(time.Now().UTC()) {
+		writeJSON(w, http.StatusNotFound, protocol.Response{Status: protocol.StatusFailed, Message: "no offer"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"envelope": offer.envelope})
 }
 
 func (s *Server) newDeviceLocked(name, role string) deviceRecord {

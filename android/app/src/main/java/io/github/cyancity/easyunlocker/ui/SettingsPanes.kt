@@ -1078,6 +1078,7 @@ fun DevicesPane(
     state: UiState,
     onBack: () -> Unit,
     onAdd: (String) -> Unit,
+    onScan: () -> Unit,
     onRenew: () -> Unit,
     onRename: (String, PairedDevice) -> Unit,
     onRevoke: (String, PairedDevice) -> Unit,
@@ -1258,7 +1259,9 @@ fun DevicesPane(
                 state.pairCode.isNotBlank() && codeLeft <= 0 -> PrimaryButton("重新生成配对码") { onAdd(state.pairCodeRole.ifBlank { "requester" }) }
                 state.pairCode.isNotBlank() -> QuietButton("收起配对码") { onDismissCode() }
                 else -> {
-                    PrimaryButton("添加设备（生成配对码）") { onAdd("requester") }
+                    PrimaryButton("扫码配对桌面") { onScan() }
+                    Spacer(Modifier.height(8.dp))
+                    QuietButton("添加设备（生成配对码）") { onAdd("requester") }
                     Spacer(Modifier.height(8.dp))
                     QuietButton("配对桌面批准端（GUI）") { onAdd("approver") }
                 }

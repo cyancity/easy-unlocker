@@ -50,3 +50,8 @@ xcuserdata/
 desktop/desktop.exe
 desktop/build/
 desktop/easy-unlocker
+.dist/
+.phone-backup/
+desktop
+desktop.exe~
+check-events.ps1

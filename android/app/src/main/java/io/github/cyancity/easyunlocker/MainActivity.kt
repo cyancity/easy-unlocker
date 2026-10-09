@@ -153,6 +153,7 @@ class MainActivity : FragmentActivity() {
                     onSelectField = vm::selectField,
                     onCreatePairCode = vm::createPairCode,
                     onClearPairCode = vm::clearPairCode,
+                    onPairOffer = vm::pairOffer,
                     onRenewDevice = vm::renewDevice,
                     onRevokeDevice = { pairingId, device -> vm.revokeDevice(pairingId, device.id) },
                     onToast = vm::toast,

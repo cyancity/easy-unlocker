@@ -27,6 +27,7 @@ type App struct {
 	cached    vaultCache
 	vault     *vault // nil = 未解锁
 	requester *cli.Client
+	qrSession *qrPairSession // 进行中的扫码配对，nil = 无
 }
 
 func NewApp() *App {
@@ -42,6 +43,7 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	go a.watchSessionLock()
 }
 
 // ---------- 状态 ----------

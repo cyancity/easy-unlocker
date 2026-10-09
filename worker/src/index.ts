@@ -345,6 +345,50 @@ async function handlePairCode(request: Request, env: Env): Promise<Response> {
   return json(200, { code: result.code, expires_at: new Date(result.expiresAt).toISOString() });
 }
 
+/** 扫码配对（approver）：手机扫到桌面 QR 后调，把密封好的设备令牌挂到 session 下。
+ * envelope 在 DO 里生成——密封用桌面公钥，令牌本体不出 DO（对齐 Go /v1/pair/offer）。 */
+async function handlePairOffer(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "POST") return methodNotAllowed();
+  const body = await readJson(request, ["session", "pub", "name", "role"]).catch(() => null);
+  const session = str(body?.session).trim();
+  if (session.length < 16 || session.length > 128 || str(body?.pub).trim() === "") {
+    return json(400, { status: "invalid_request", message: "invalid offer body" });
+  }
+  const result = await callDo<{ ok: boolean; expiresAt?: number; reason?: string }>(
+    env,
+    "/offer-create",
+    {
+      deviceToken: bearerToken(request.headers.get("authorization")),
+      session,
+      pub: str(body?.pub),
+      name: str(body?.name),
+      role: str(body?.role),
+    },
+  );
+  if (!result.ok) {
+    if (result.reason === "unauthorized") {
+      return json(401, { status: "unauthorized", message: "approver device required" });
+    }
+    return json(400, { status: "invalid_request", message: result.reason ?? "invalid offer" });
+  }
+  return json(200, {
+    status: "ok",
+    expires_at: new Date(result.expiresAt ?? 0).toISOString(),
+  });
+}
+
+/** 桌面轮询取扫码配对的密封令牌：无鉴权，envelope 只有桌面私钥解得开（一次性，读到即删）。 */
+async function handlePairOfferPoll(request: Request, env: Env, session: string): Promise<Response> {
+  if (request.method !== "GET") return methodNotAllowed();
+  const result = await callDo<{ found: boolean; envelope?: string }>(env, "/offer-poll", {
+    session,
+  });
+  if (!result.found) {
+    return json(404, { status: "failed", message: "no offer" });
+  }
+  return json(200, { envelope: result.envelope });
+}
+
 /** 新机器用配对码换设备令牌：无鉴权，码本身就是凭证（一次性、10 分钟）。 */
 async function handleClaim(request: Request, env: Env): Promise<Response> {
   if (request.method !== "POST") return methodNotAllowed();
@@ -507,6 +551,10 @@ export default {
       if (path === "/v1/admin/forget-device") return await handleForgetDevice(request, env);
       if (path === "/v1/device/pending") return await handlePending(request, env, false);
       if (path === "/v1/device/pair") return await handlePair(request, env);
+      if (path === "/v1/pair/offer") return await handlePairOffer(request, env);
+      if (path.startsWith("/v1/pair/offer/")) {
+        return await handlePairOfferPoll(request, env, path.slice("/v1/pair/offer/".length));
+      }
       if (path === "/v1/device/pair-code") return await handlePairCode(request, env);
       if (path === "/v1/device/devices") return await handleDevices(request, env);
       if (path === "/v1/device/revoke") return await handleRevoke(request, env);

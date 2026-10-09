@@ -66,6 +66,21 @@ class BrokerClient(
         return o.getString("code") to expiresAt
     }
 
+    /**
+     * 扫码配对：把桌面 QR 里的 session + 公钥交给 broker。
+     * broker 在本租户下创建设备，令牌用桌面公钥密封后挂到 session 下等桌面来取。
+     * role 默认 approver（桌面批准端）；想要桌面只取凭据可传 requester。
+     */
+    fun pairOffer(session: String, pub: String, name: String, role: String = "approver") {
+        val body = JSONObject()
+            .put("session", session)
+            .put("pub", pub)
+            .put("name", name)
+            .put("role", role)
+            .toString()
+        request("POST", "/v1/pair/offer", body, deviceToken)
+    }
+
     /** 已配对设备列表（不含令牌本体）。 */
     fun devices(): List<PairedDevice> {
         val raw = request("GET", "/v1/device/devices", null, deviceToken)

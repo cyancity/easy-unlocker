@@ -26,6 +26,7 @@ import io.github.cyancity.easyunlocker.data.VaultItem
 import io.github.cyancity.easyunlocker.data.VaultRepository
 import io.github.cyancity.easyunlocker.data.deviceDate
 import io.github.cyancity.easyunlocker.data.normalizeGatewayUrl
+import org.json.JSONObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.text.SimpleDateFormat
@@ -33,7 +34,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
-enum class Screen { Setup, Unlock, Vault, Item, Edit, Pair, Pairings, Settings, Pending, Approved, History, HistoryDetail, Import, Devices }
+enum class Screen { Setup, Unlock, Vault, Item, Edit, Pair, Pairings, Settings, Pending, Approved, History, HistoryDetail, Import, Devices, Scan }
 
 /** 别的网关上有几条待批准。只报数量——批准必须在收到请求的那台网关上做，所以按钮是「切过去」。 */
 data class OtherPending(val pairingId: String, val count: Int)
@@ -838,6 +839,57 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearPairCode() {
         _state.value = _state.value.copy(pairCode = "", pairCodeExpiresAt = 0, pairCodeRole = "")
+    }
+
+    /**
+     * 扫码配对：扫到桌面 QR（{v,kind:"eu-pair",broker,s,k,n}）后，
+     * 让 broker 在本租户下创建设备并把密封令牌挂到 session 上等桌面来取。
+     * QR 的 broker 必须与当前网关一致——跨网关扫码一律拒，防止把令牌挂到别的服务器。
+     */
+    fun pairOffer(qrText: String) {
+        val pairing = _state.value.activePairing ?: return
+        val payload = try {
+            JSONObject(qrText)
+        } catch (e: Exception) {
+            _state.value = _state.value.copy(toast = "不是 easy-unlocker 的配对二维码")
+            return
+        }
+        if (payload.optString("kind") != "eu-pair" ||
+            payload.optString("s").isBlank() ||
+            payload.optString("k").isBlank()
+        ) {
+            _state.value = _state.value.copy(toast = "不是 easy-unlocker 的配对二维码")
+            return
+        }
+        val want = payload.optString("broker").trimEnd('/').lowercase()
+        val have = pairing.url.trimEnd('/').lowercase()
+        if (want != have) {
+            _state.value = _state.value.copy(toast = "二维码指向的网关与当前不一致，先切过去再扫")
+            return
+        }
+        val session = payload.optString("s")
+        val pub = payload.optString("k")
+        val name = payload.optString("n").ifBlank { "desktop" }
+        _state.value = _state.value.copy(loading = true)
+        bg {
+            val result = runCatching {
+                BrokerClient(pairing.url, pairing.deviceToken).pairOffer(session, pub, name, "approver")
+            }
+            main.post {
+                result.fold(
+                    onSuccess = {
+                        _state.value = _state.value.copy(
+                            loading = false,
+                            screen = Screen.Devices,
+                            toast = "已把「$name」配成批准端，桌面稍候即通",
+                        )
+                    },
+                    onFailure = { e ->
+                        _state.value = _state.value.copy(loading = false, message = e.message ?: "扫码配对失败")
+                    },
+                )
+            }
+        }
     }
 
     /**
