@@ -10,6 +10,8 @@ export { BrokerState };
 // 目标：App 与 CLI 一行不改，只换 base URL。
 
 const MAX_BODY = 64 * 1024;
+// vault 同步体比请求体大得多：整库密文 + wrap，上限 2MB（对齐 Go maxVaultBody）。
+const MAX_VAULT_BODY = 2 * 1024 * 1024;
 const DEFAULT_MAX_TTL = 3600;
 const DEFAULT_MAX_WAIT_MS = 300_000;
 const DO_NAME = "default";
@@ -66,8 +68,12 @@ function str(value: unknown): string {
 
 /** 对齐 Go 的 decodeJSON：限长、必须是单个 JSON 对象、拒绝未知字段。 */
 async function readJson(request: Request, allowed: string[]): Promise<any | null> {
+  return readJsonLimit(request, allowed, MAX_BODY);
+}
+
+async function readJsonLimit(request: Request, allowed: string[], maxBytes: number): Promise<any | null> {
   const text = await request.text();
-  if (text.length > MAX_BODY) return null;
+  if (text.length > maxBytes) return null;
   let body: any;
   try {
     body = JSON.parse(text);
@@ -317,19 +323,70 @@ async function requireDevice(request: Request, env: Env): Promise<boolean> {
   return ok;
 }
 
-/** 已授权设备生成一次性配对码（App 里显示，新机器用它换设备令牌）。 */
+/** 已授权设备生成一次性配对码（App 里显示，新机器用它换设备令牌）。
+ * 可选 body {role}：requester（默认）/ approver（桌面批准端）。 */
 async function handlePairCode(request: Request, env: Env): Promise<Response> {
   if (request.method !== "POST") return methodNotAllowed();
   if (!(await requireDevice(request, env))) {
     return json(401, { status: "unauthorized", message: "device authorization required" });
   }
+  const body = await readJson(request, ["role"]).catch(() => null);
+  const role = str(body?.role).trim();
+  if (role !== "" && role !== "requester" && role !== "approver") {
+    return json(400, { status: "invalid_request", message: "invalid role" });
+  }
   const result = await callDo<{ code: string; expiresAt: number }>(env, "/pair-code", {
     deviceToken: bearerToken(request.headers.get("authorization")),
+    role: role === "" ? undefined : role,
   });
   if (!result.code) {
     return json(401, { status: "unauthorized", message: "device authorization required" });
   }
   return json(200, { code: result.code, expires_at: new Date(result.expiresAt).toISOString() });
+}
+
+/** 扫码配对（approver）：手机扫到桌面 QR 后调，把密封好的设备令牌挂到 session 下。
+ * envelope 在 DO 里生成——密封用桌面公钥，令牌本体不出 DO（对齐 Go /v1/pair/offer）。 */
+async function handlePairOffer(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "POST") return methodNotAllowed();
+  const body = await readJson(request, ["session", "pub", "name", "role"]).catch(() => null);
+  const session = str(body?.session).trim();
+  if (session.length < 16 || session.length > 128 || str(body?.pub).trim() === "") {
+    return json(400, { status: "invalid_request", message: "invalid offer body" });
+  }
+  const result = await callDo<{ ok: boolean; expiresAt?: number; reason?: string }>(
+    env,
+    "/offer-create",
+    {
+      deviceToken: bearerToken(request.headers.get("authorization")),
+      session,
+      pub: str(body?.pub),
+      name: str(body?.name),
+      role: str(body?.role),
+    },
+  );
+  if (!result.ok) {
+    if (result.reason === "unauthorized") {
+      return json(401, { status: "unauthorized", message: "approver device required" });
+    }
+    return json(400, { status: "invalid_request", message: result.reason ?? "invalid offer" });
+  }
+  return json(200, {
+    status: "ok",
+    expires_at: new Date(result.expiresAt ?? 0).toISOString(),
+  });
+}
+
+/** 桌面轮询取扫码配对的密封令牌：无鉴权，envelope 只有桌面私钥解得开（一次性，读到即删）。 */
+async function handlePairOfferPoll(request: Request, env: Env, session: string): Promise<Response> {
+  if (request.method !== "GET") return methodNotAllowed();
+  const result = await callDo<{ found: boolean; envelope?: string }>(env, "/offer-poll", {
+    session,
+  });
+  if (!result.found) {
+    return json(404, { status: "failed", message: "no offer" });
+  }
+  return json(200, { envelope: result.envelope });
 }
 
 /** 新机器用配对码换设备令牌：无鉴权，码本身就是凭证（一次性、10 分钟）。 */
@@ -341,7 +398,7 @@ async function handleClaim(request: Request, env: Env): Promise<Response> {
     return json(400, { status: "invalid_request", message: "code required" });
   }
   const result = await callDo<
-    { token: string; name: string; expiresAt: number } | { error: string }
+    { token: string; name: string; role?: string; expiresAt: number } | { error: string }
   >(env, "/claim", { code, name: str(body?.name) });
   if ("error" in result) {
     return json(403, { status: "invalid_claim", message: "invalid or expired code" });
@@ -349,6 +406,7 @@ async function handleClaim(request: Request, env: Env): Promise<Response> {
   return json(200, {
     device_token: result.token,
     name: result.name,
+    role: result.role ?? "requester",
     expires_at: new Date(result.expiresAt).toISOString(),
   });
 }
@@ -432,6 +490,50 @@ async function handlePushToken(request: Request, env: Env): Promise<Response> {
   return json(200, { status: "ok" });
 }
 
+/** 租户级 vault 同步：approver 存取整库密文（+可选密码包裹），broker 只保管不解读。 */
+async function handleVault(request: Request, env: Env): Promise<Response> {
+  const deviceToken = bearerToken(request.headers.get("authorization"));
+  const authz = await callDo<{ ok: boolean; tenant?: string }>(env, "/approver-authorized", {
+    deviceToken,
+  });
+  if (!authz.ok) {
+    return json(401, { status: "unauthorized", message: "approver device required" });
+  }
+  const tenant = authz.tenant ?? "default";
+  if (request.method === "GET") {
+    const result = await callDo<{
+      found: boolean;
+      blob?: string;
+      wrap?: string;
+      updatedAt?: number;
+    }>(env, "/vault-get", { tenant });
+    if (!result.found) {
+      return json(404, { status: "failed", message: "no vault synced" });
+    }
+    return json(200, {
+      blob: result.blob,
+      wrap: result.wrap ?? "",
+      updated_at: new Date(result.updatedAt ?? 0).toISOString(),
+    });
+  }
+  if (request.method === "POST") {
+    const body = await readJsonLimit(request, ["blob", "wrap"], MAX_VAULT_BODY);
+    if (body === null || str(body.blob).trim() === "") {
+      return json(400, { status: "invalid_request", message: "blob required" });
+    }
+    const put = await callDo<{ ok: boolean }>(env, "/vault-put", {
+      tenant,
+      blob: body.blob,
+      wrap: str(body.wrap),
+    });
+    if (!put.ok) {
+      return json(400, { status: "invalid_request", message: "blob required" });
+    }
+    return json(200, { status: "ok" });
+  }
+  return methodNotAllowed();
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const path = new URL(request.url).pathname;
@@ -449,6 +551,10 @@ export default {
       if (path === "/v1/admin/forget-device") return await handleForgetDevice(request, env);
       if (path === "/v1/device/pending") return await handlePending(request, env, false);
       if (path === "/v1/device/pair") return await handlePair(request, env);
+      if (path === "/v1/pair/offer") return await handlePairOffer(request, env);
+      if (path.startsWith("/v1/pair/offer/")) {
+        return await handlePairOfferPoll(request, env, path.slice("/v1/pair/offer/".length));
+      }
       if (path === "/v1/device/pair-code") return await handlePairCode(request, env);
       if (path === "/v1/device/devices") return await handleDevices(request, env);
       if (path === "/v1/device/revoke") return await handleRevoke(request, env);
@@ -456,6 +562,7 @@ export default {
       if (path === "/v1/device/renew") return await handleRenew(request, env);
       if (path === "/v1/pair/claim") return await handleClaim(request, env);
       if (path === "/v1/device/push-token") return await handlePushToken(request, env);
+      if (path === "/v1/vault") return await handleVault(request, env);
       if (path.startsWith("/v1/decision/")) {
         return await handleDecision(request, env, path.slice("/v1/decision/".length));
       }

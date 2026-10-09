@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -336,6 +337,9 @@ func signAsPhone(t *testing.T, view broker.PendingView) string {
 // 端到端：easyGet ssh → Broker → 手机替身签发 → 证书与身份落盘。
 // 顺带验证 sign 请求的三字段经 pendingView 透传到了手机侧。
 func TestSSHRequestGetsPhoneSignedCertificate(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("依赖 HOME 隔离；Windows 上 os.UserHomeDir 走 USERPROFILE")
+	}
 	httpServer, notifications := listBroker(t)
 	directory := t.TempDir()
 	t.Setenv("HOME", directory)

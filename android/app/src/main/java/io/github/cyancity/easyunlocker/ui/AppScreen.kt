@@ -69,8 +69,9 @@ fun AppScreen(
     onHoldVault: () -> Unit,
     onReleaseVault: () -> Unit,
     onSelectField: (String) -> Unit,
-    onCreatePairCode: () -> Unit,
+    onCreatePairCode: (String) -> Unit,
     onClearPairCode: () -> Unit,
+    onPairOffer: (String) -> Unit,
     onRenewDevice: () -> Unit,
     onRenameDevice: (String, String, String) -> Unit,
     onRevokeDevice: (String, PairedDevice) -> Unit,
@@ -109,11 +110,12 @@ fun AppScreen(
     val openItem = state.items.firstOrNull { it.id == state.openItemId }
     val editItem = state.items.firstOrNull { it.id == state.editingId }
 
-    BackHandler(enabled = state.screen == Screen.Item || state.screen == Screen.Edit || state.screen == Screen.Pair || state.screen == Screen.Pairings || state.screen == Screen.Approved || state.screen == Screen.History || state.screen == Screen.HistoryDetail || state.screen == Screen.Import || state.screen == Screen.Devices || sheet != Sheet.None) {
+    BackHandler(enabled = state.screen == Screen.Item || state.screen == Screen.Edit || state.screen == Screen.Pair || state.screen == Screen.Pairings || state.screen == Screen.Approved || state.screen == Screen.History || state.screen == Screen.HistoryDetail || state.screen == Screen.Import || state.screen == Screen.Devices || state.screen == Screen.Scan || sheet != Sheet.None) {
         when {
             sheet != Sheet.None -> sheet = Sheet.None
             state.screen == Screen.Import -> onCancelImport()
             state.screen == Screen.Devices -> onGo(Screen.Settings)
+            state.screen == Screen.Scan -> onGo(Screen.Devices)
             state.screen == Screen.Item || state.screen == Screen.Approved -> onGo(Screen.Vault)
             state.screen == Screen.Edit -> onGo(if (state.editingId != null) Screen.Item else Screen.Vault)
             state.screen == Screen.Pair -> onGo(Screen.Pairings)
@@ -192,10 +194,15 @@ fun AppScreen(
                     onOpenGateway = onSwitchToPending,
                 )
                 Screen.Approved -> ApprovedPane(state.lastApprovedItem, state.lastApprovedRequester) { onGo(Screen.Vault) }
+                Screen.Scan -> ScanPane(
+                    onBack = { onGo(Screen.Devices) },
+                    onCode = onPairOffer,
+                )
                 Screen.Devices -> DevicesPane(
                     state = state,
                     onBack = { onGo(Screen.Settings) },
                     onAdd = onCreatePairCode,
+                    onScan = { onGo(Screen.Scan) },
                     onRenew = onRenewDevice,
                     onRename = { pairingId, device -> sheet = Sheet.DeviceRename(pairingId, device) },
                     onRevoke = onRevokeDevice,

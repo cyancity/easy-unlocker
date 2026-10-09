@@ -41,6 +41,7 @@ func run() error {
 	tlsCert := flags.String("tls-cert", os.Getenv("EASY_UNLOCKER_TLS_CERT"), "TLS certificate path (optional)")
 	tlsKey := flags.String("tls-key", os.Getenv("EASY_UNLOCKER_TLS_KEY"), "TLS private key path (optional)")
 	deviceFile := flags.String("device-file", envOr("EASY_UNLOCKER_DEVICE_FILE", "data/devices.json"), "paired device token file")
+	vaultFile := flags.String("vault-file", envOr("EASY_UNLOCKER_VAULT_FILE", "data/vaults.json"), "synced vault ciphertext file")
 	fcmCreds := flags.String("fcm-credentials", os.Getenv("EASY_UNLOCKER_FCM_CREDENTIALS"), "Firebase service account JSON")
 	publicURL := flags.String("public-url", os.Getenv("EASY_UNLOCKER_PUBLIC_URL"), "本 Broker 的公网地址，写进推送载荷当网关标识（App 用它自动切换）")
 	if err := flags.Parse(os.Args[1:]); err != nil {
@@ -91,6 +92,7 @@ func run() error {
 		Audit:        audit,
 		MaxTTL:       *maxTTL,
 		DeviceFile:   *deviceFile,
+		VaultFile:    *vaultFile,
 		FCM:          fcm,
 		Version:      version,
 	})

@@ -55,12 +55,30 @@ class BrokerClient(
         request("POST", "/v1/decision/$requestId", body.toString(), deviceToken)
     }
 
-    /** 生成一次性配对码（10 分钟），给新机器的 `easyGet pair` 用。返回 码 to 过期时刻（epoch 毫秒）。 */
-    fun createPairCode(): Pair<String, Long> {
-        val raw = request("POST", "/v1/device/pair-code", "{}", deviceToken)
+    /**
+     * 生成一次性配对码（10 分钟）。返回 码 to 过期时刻（epoch 毫秒）。
+     * role：requester（默认，给 easyGet 取凭据）/ approver（桌面批准端，能批准也能发请求）。
+     */
+    fun createPairCode(role: String = "requester"): Pair<String, Long> {
+        val raw = request("POST", "/v1/device/pair-code", JSONObject().put("role", role).toString(), deviceToken)
         val o = JSONObject(raw)
         val expiresAt = runCatching { java.time.Instant.parse(o.getString("expires_at")).toEpochMilli() }.getOrDefault(0L)
         return o.getString("code") to expiresAt
+    }
+
+    /**
+     * 扫码配对：把桌面 QR 里的 session + 公钥交给 broker。
+     * broker 在本租户下创建设备，令牌用桌面公钥密封后挂到 session 下等桌面来取。
+     * role 默认 approver（桌面批准端）；想要桌面只取凭据可传 requester。
+     */
+    fun pairOffer(session: String, pub: String, name: String, role: String = "approver") {
+        val body = JSONObject()
+            .put("session", session)
+            .put("pub", pub)
+            .put("name", name)
+            .put("role", role)
+            .toString()
+        request("POST", "/v1/pair/offer", body, deviceToken)
     }
 
     /** 已配对设备列表（不含令牌本体）。 */
@@ -78,6 +96,7 @@ class BrokerClient(
                         lastUsedAt = if (o.isNull("last_used_at")) "" else o.optString("last_used_at"),
                         expiresAt = o.optString("expires_at"),
                         current = o.optBoolean("current"),
+                        role = o.optString("role"),
                     )
                 )
             }
@@ -92,6 +111,16 @@ class BrokerClient(
     /** 给一台设备改名（同租户内，可以是当前这台）。 */
     fun renameDevice(id: String, name: String) {
         request("POST", "/v1/device/rename", JSONObject().put("id", id).put("name", name).toString(), deviceToken)
+    }
+
+    /**
+     * 把整库密文推到本租户：blob = vault.eu1 原文（已是密文 JSON），
+     * wrap = password.wrap（密码包裹的 vault key，可选）。broker 只保管不解读。
+     */
+    fun uploadVault(blob: String, wrap: String) {
+        val body = JSONObject().put("blob", blob)
+        if (wrap.isNotBlank()) body.put("wrap", wrap)
+        request("POST", "/v1/vault", body.toString(), deviceToken)
     }
 
     /** 给当前设备续期 180 天，返回新的过期时间。 */

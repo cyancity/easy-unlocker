@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -64,52 +65,75 @@ func WriteConfig(configPath, brokerURL, token string) error {
 		_ = os.Remove(name)
 		return errors.New("无法替换配置文件")
 	}
+	hardenPrivateFile(configPath)
 	return nil
+}
+
+// ClaimResult 是 /v1/pair/claim 的完整返回：桌面端要用 role 判断这台机器是
+// 取凭据设备（requester）还是批准端（approver）。
+type ClaimResult struct {
+	DeviceToken string `json:"device_token"`
+	Name        string `json:"name"`
+	Role        string `json:"role"`
+	ExpiresAt   string `json:"expires_at"`
 }
 
 // PairClaim 用一次性配对码换设备令牌。配对码由手机 App 生成（10 分钟、单次使用）。
 func PairClaim(brokerURL, code, name string) (deviceToken, deviceName, expiresAt string, err error) {
+	result, err := PairClaimFull(brokerURL, code, name)
+	if err != nil {
+		return "", "", "", err
+	}
+	return result.DeviceToken, result.Name, result.ExpiresAt, nil
+}
+
+// PairClaimFull 同 PairClaim，但带回完整的角色信息。
+func PairClaimFull(brokerURL, code, name string) (ClaimResult, error) {
+	var zero ClaimResult
 	brokerURL = strings.TrimRight(strings.TrimSpace(brokerURL), "/")
 	if brokerURL == "" {
-		return "", "", "", errors.New("需要 --broker 指向网关")
+		return zero, errors.New("需要 --broker 指向网关")
 	}
 	if err := CheckBrokerURL(brokerURL); err != nil {
-		return "", "", "", err
+		return zero, err
 	}
 	code = strings.ToUpper(strings.TrimSpace(code))
 	if code == "" {
-		return "", "", "", errors.New("需要 --code（手机 App 里生成的配对码）")
+		return zero, errors.New("需要 --code（手机 App 里生成的配对码）")
 	}
 	payload, err := json.Marshal(map[string]string{"code": code, "name": strings.TrimSpace(name)})
 	if err != nil {
-		return "", "", "", errors.New("无法编码请求")
+		return zero, errors.New("无法编码请求")
 	}
 	req, err := http.NewRequest(http.MethodPost, brokerURL+"/v1/pair/claim", strings.NewReader(string(payload)))
 	if err != nil {
-		return "", "", "", errors.New("无法连接网关")
+		return zero, errors.New("无法连接网关")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", "", "", errors.New("网关请求失败")
+		return zero, errors.New("网关请求失败")
 	}
 	defer resp.Body.Close()
-	var result struct {
-		DeviceToken string `json:"device_token"`
-		Name        string `json:"name"`
-		ExpiresAt   string `json:"expires_at"`
-		Message     string `json:"message"`
+	var result ClaimResult
+	var fail struct {
+		Message string `json:"message"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", "", "", errors.New("网关返回了无效响应")
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return zero, errors.New("网关返回了无效响应")
 	}
-	if resp.StatusCode != http.StatusOK || result.DeviceToken == "" {
-		message := result.Message
+	if resp.StatusCode != http.StatusOK {
+		_ = json.Unmarshal(raw, &fail)
+		message := fail.Message
 		if message == "" {
 			message = fmt.Sprintf("HTTP %d", resp.StatusCode)
 		}
-		return "", "", "", fmt.Errorf("配对失败：%s", message)
+		return zero, fmt.Errorf("配对失败：%s", message)
 	}
-	return result.DeviceToken, result.Name, result.ExpiresAt, nil
+	if err := json.Unmarshal(raw, &result); err != nil || result.DeviceToken == "" {
+		return zero, errors.New("网关返回了无效响应")
+	}
+	return result, nil
 }

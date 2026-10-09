@@ -271,11 +271,21 @@ class VaultRepository(private val context: Context) {
 
     fun exportBytes(): ByteArray = file.readBytes()
 
+    /** password.wrap 原文（密文 JSON），桌面端同步解锁用；没设密码时给空串。 */
+    fun passwordWrapJson(): String = passwordWrap.wrapJson()
+
+    /**
+     * 每次落盘完成后的回调（静默 vault 同步挂在上面）。
+     * 约束：在 repo 锁内、写库线程上被调；回调里只能另起线程，不许回头调 @Synchronized 方法。
+     */
+    var onSaved: (() -> Unit)? = null
+
     fun importBytes(raw: ByteArray, recoveryCode: String) {
         file.writeBytes(raw)
         // 换库等于换钥匙：旧密码包出来的还是上一个库的 key，必须作废。
         passwordWrap.clear()
         unlock(recoveryCode)
+        onSaved?.invoke()
     }
 
     @Synchronized
@@ -298,6 +308,7 @@ class VaultRepository(private val context: Context) {
             .put("ops", ops)
             .put("memKiB", mem)
         file.writeText(obj.toString())
+        onSaved?.invoke()
     }
 
     private fun readFile(): VaultFile {

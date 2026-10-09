@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -44,6 +45,9 @@ func TestParseItemListAcceptsOnlyTheListShape(t *testing.T) {
 }
 
 func TestSaveItemsRoundTripIsPrivate(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows 下无 unix 权限位，私有性由 NTFS ACL 承担")
+	}
 	dir := filepath.Join(t.TempDir(), "easy-unlocker")
 	path := filepath.Join(dir, "items.json")
 	saved := ItemList{

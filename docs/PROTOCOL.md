@@ -9,7 +9,7 @@
 | 角色 | 凭据 | 能力 |
 |---|---|---|
 | 全局 pairing token | `Authorization: Bearer <token>` | 服务器管理员持有；配对 approver 上岗 + 直发请求（归入 `default` 租户） |
-| approver 设备令牌 | `Authorization: Bearer <token>` | 拉 pending、做决定、配对码、设备管理、推送注册 |
+| approver 设备令牌 | `Authorization: Bearer <token>` | 拉 pending、做决定、配对码、设备管理、推送注册、vault 密文同步 |
 | requester 设备令牌 | `Authorization: Bearer <token>` | 发起请求 |
 | admin token | `X-Admin-Token: <token>` | 跨租户 pending 视图（运维） |
 | 决策签名 | body `sig` | 一次性 HMAC，绑定单个 request_id + 决定方向（approve/deny 各一枚）。FCM 推送载荷携带，通知直达也能批 |
@@ -19,8 +19,8 @@
 ## 2. 租户模型
 
 - **vault_id = 租户**：App 建库/首次解锁时本地生成 UUID，存进加密区（导出/导入沿用 = 换机同租户）。
-- approver 配对时声明 `vault_id` 绑定租户；**同租户新 approver 上岗自动撤销旧 approver**（换机独占语义）。
-- 配对码绑生成者的租户；requester claim 后继承同租户。
+- approver 经 `POST /v1/device/pair` 上岗时声明 `vault_id` 绑定租户；**该路径下同租户新 approver 上岗自动撤销旧 approver**（换机独占语义）。
+- 配对码绑生成者的租户与角色；claim 后继承同租户。`role=approver` 的配对码配出第二个批准端（桌面/备用机），**不触发换机独占**——多 approver 是有意为之。
 - **requester 不携带租户字段**——Broker 从其令牌反查，伪造不了。
 - pending / decision / FCM / 设备列表 / 撤销 / 改名全部按租户过滤；老设备记录（无 tenant 字段）归 `default`。
 - admin token 视野跨租户（P2 开源后视情况收敛）。
@@ -48,18 +48,30 @@
 | `GET /v1/device/pending` | approver | 本租户 pending 列表（PendingView[]） |
 | `POST /v1/decision/{id}` | approver **或** body `sig` | `{decision: "approve"\|"deny", sig?, payload?}` → `{status:"accepted"}`。sig 与令牌任一即可；approve 密封请求必须带 `payload` |
 | `POST /v1/device/pair` | pairing token | `{name, vault_id?}` → `{device_token, name}`。approver 上岗入口 |
-| `POST /v1/device/pair-code` | approver | → `{code, expires_at}`（10 分钟，一次性） |
+| `POST /v1/device/pair-code` | approver | `{role?: "requester"\|"approver"}` → `{code, expires_at}`（10 分钟，一次性）。省略 role = `requester`；`approver` 码配出批准端设备（桌面/第二台手机），不触发换机独占 |
 | `GET /v1/device/devices` | approver | → `{devices: [{id,name,role,created_at,expires_at,last_used_at?,current}]}` |
 | `POST /v1/device/revoke` | approver | `{id}` → `{status:"ok",removed}`。撤销自己 = 登出 |
 | `POST /v1/device/rename` | approver | `{id, name}` → `{status:"ok",renamed}` |
 | `POST /v1/device/renew` | approver（本机） | `{}` → `{status:"ok",expires_at}`，再延 180 天 |
 | `POST /v1/device/push-token` | approver | `{token}` → `{status:"ok"}`，注册 FCM token |
+| `GET /v1/vault` | approver | 本租户整库密文 → `{blob, wrap?, updated_at}`；未同步过返回 404 |
+| `POST /v1/vault` | approver | `{blob, wrap?}` → `{status:"ok",updated_at}`。opaque 密文，broker 不解码；请求体 ≤2MiB |
+| `POST /v1/pair/offer` | approver | `{session, pub, name, role?}` → `{status:"ok"}`。QR 配对的手机半拍：在**本租户**下建一个设备，把 `{device_token, role, name}` 用 `pub`（桌面 X25519 公钥）密封后挂到 session 上，5 分钟有效、取一次即焚。省略 role = `approver` |
 
 ### 设备配对（无凭据入口）
 
 | 端点 | 认证 | 说明 |
 |---|---|---|
-| `POST /v1/pair/claim` | — | `{code, name}` → `{device_token, name, expires_at}`。requester 上岗入口 |
+| `POST /v1/pair/claim` | — | `{code, name}` → `{device_token, name, role, expires_at}`。response `role` 即配对码里烧录的角色 |
+| `GET /v1/pair/offer/{session}` | — | → `{envelope}`（v2 boxpayload 密封的 grant JSON）；无 offer/已过期返回 404。**响应只有密文**——拍到 QR 也拿不到令牌 |
+
+#### QR 配对时序（手机扫桌面）
+
+1. 桌面生成一次性 X25519 密钥对 + 随机 session，QR 内容为 `{"v":1,"kind":"eu-pair","broker":"<url>","s":"<session>","k":"<X25519 pub>","n":"<桌面名>"}`
+2. 手机扫码 → 校验 `kind` 与 broker 一致性 → `POST /v1/pair/offer`
+3. 桌面轮询 `GET /v1/pair/offer/{session}` → `boxpayload.Open` 出 `{device_token, role, name}` → 落本地配置（并同步写 easyGet 配置）
+
+QR 本身不含任何凭据；令牌只经密封信道到桌面私钥持有者。session 是 offer 的 AAD，重放到别的会话解不开。
 
 ### 运维
 
@@ -152,6 +164,6 @@ wire  = "v2." + b64url( eph_pub[32] | nonce[12] | ct )
 
 ## 8. Broker 视野（威胁模型）
 
-**看得到**：item 名、purpose、target 路径、requester 字符串、mode、设备名/id、租户 UUID、时间戳、推送 token。
+**看得到**：item 名、purpose、target 路径、requester 字符串、mode、设备名/id、租户 UUID、时间戳、推送 token、vault 密文 blob 的存在/大小/更新时间（内容不可读，恢复码与解锁密码永不出端）。
 **看不到**：任何条目值、CA 私钥、证书明文（v2 密封后）、vault 内容。
 **能作恶**：拖延/丢弃请求、发假推送（但没有有效 sig 就批不了东西；伪 approver 也只能批到假 pending）。机密性不依赖 broker 诚实。

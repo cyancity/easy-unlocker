@@ -68,8 +68,8 @@ func loadConfigFile(path string, settings *Settings) error {
 	if err != nil {
 		return err
 	}
-	if info.Mode().Perm()&0o077 != 0 {
-		return errors.New("config file is not private")
+	if err := checkConfigPrivate(info); err != nil {
+		return err
 	}
 	material, err := os.ReadFile(path)
 	if err != nil {
@@ -332,6 +332,7 @@ func WriteSecret(path string, value []byte) error {
 		return errors.New("无法替换目标文件")
 	}
 	removeTemporary = false
+	hardenPrivateFile(path)
 	return nil
 }
 
@@ -361,6 +362,9 @@ func RequestContext(ttl int) (context.Context, context.CancelFunc) {
 func defaultRequester() string {
 	host, _ := os.Hostname()
 	user := os.Getenv("USER")
+	if user == "" {
+		user = os.Getenv("USERNAME") // Windows
+	}
 	if user == "" {
 		user = "agent"
 	}

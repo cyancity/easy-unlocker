@@ -1,12 +1,14 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
 import { timingSafeEqual } from "./sign";
+import { sealToPublic } from "./box";
 
 // 单个 DO 实例（名字固定 "default"）里保存全部状态，等价于 Go 版那把 sync.Mutex 保护的两个 map，
 // 换来的是强一致：/v1/device/pending 一读就能看到刚创建的请求，不会像 KV 那样读到 60s 前的旧值。
 const REQ_PREFIX = "req:";
 const DEV_PREFIX = "dev:";
 const CODE_PREFIX = "code:";
+const OFFER_PREFIX = "offer:";
 
 type PendingState = "waiting" | "approved" | "denied" | "expired" | "failed";
 
@@ -50,6 +52,8 @@ const PAIR_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const LAST_USED_TOUCH_MS = 60 * 60 * 1000;
 /** 断线宽限期：客户端连接断了 pending 再留这么久等重连（对齐 Go detachGrace）。 */
 const DETACH_GRACE_MS = 15_000;
+/** 扫码配对 offer 有效期（对齐 Go pairOfferTTL）。 */
+const OFFER_TTL_MS = 5 * 60 * 1000;
 
 interface DeviceRecord {
   /** 对外标识，用于撤销；令牌本体只在自己设备上，不下发。 */
@@ -76,10 +80,29 @@ function tenantOf(device: DeviceRecord): string {
   return device.tenant ?? DEFAULT_TENANT;
 }
 
-/** 一次性配对码：换一次设备令牌就作废；tenant 绑生成它的 approver 所在租户。 */
+/** 一次性配对码：换一次设备令牌就作废；tenant 绑生成它的 approver 所在租户；
+ * role 决定换出的令牌是 requester（默认）还是 approver（桌面批准端）。 */
 interface PairCodeRecord {
   expiresAt: number;
   tenant: string;
+  role?: "requester" | "approver";
+}
+
+/** 租户级 vault 同步载体：blob 是 vault.eu1 密文原文，wrap 是可选的密码包裹。
+ * broker 只保管不解读——解开它要恢复码或解锁密码，都在端上。 */
+interface VaultBlob {
+  blob: string;
+  wrap?: string;
+  updatedAt: number;
+}
+
+const VAULT_PREFIX = "vault:";
+
+/** 扫码配对暂存单：envelope 是用桌面公钥密封的设备令牌，一次性、5 分钟。
+ * 谁拿到 session 都能 GET，但没有桌面私钥解不开（对齐 Go pairOffer）。 */
+interface PairOfferRecord {
+  envelope: string;
+  expiresAt: number;
 }
 
 function pairCode(): string {
@@ -169,6 +192,10 @@ export class BrokerState extends DurableObject<Env> {
         return json(200, await this.createPairCode(body));
       case "/claim":
         return json(200, await this.claimPairCode(body));
+      case "/offer-create":
+        return json(200, await this.offerCreate(body));
+      case "/offer-poll":
+        return json(200, await this.offerPoll(body));
       case "/devices":
         return json(200, await this.listDevices(body));
       case "/revoke":
@@ -179,6 +206,10 @@ export class BrokerState extends DurableObject<Env> {
         return json(200, await this.renewDevice(body));
       case "/push-token":
         return json(200, await this.setPushToken(body));
+      case "/vault-get":
+        return json(200, await this.vaultGet(body));
+      case "/vault-put":
+        return json(200, await this.vaultPut(body));
       case "/forget-device":
         return json(200, await this.forgetDevice(body));
       case "/device-authorized": {
@@ -231,10 +262,13 @@ export class BrokerState extends DurableObject<Env> {
       }
     }
     if (next !== null) await this.ctx.storage.setAlarm(next);
-    // 顺手清掉过期的配对码（设备过期在 isDevice 里就地清理）
+    // 顺手清掉过期的配对码与扫码 offer（设备过期在 isDevice 里就地清理）
     const codes = await this.ctx.storage.list<PairCodeRecord>({ prefix: CODE_PREFIX });
     const stale = [...codes.entries()].filter(([, code]) => code.expiresAt <= now).map(([key]) => key);
     if (stale.length > 0) await this.ctx.storage.delete(stale);
+    const offers = await this.ctx.storage.list<PairOfferRecord>({ prefix: OFFER_PREFIX });
+    const staleOffers = [...offers.entries()].filter(([, offer]) => offer.expiresAt <= now).map(([key]) => key);
+    if (staleOffers.length > 0) await this.ctx.storage.delete(staleOffers);
   }
 
   /** 断线标记：连接断了不取消，记 detachedAt 进宽限期，等带同 key 的重连来清。 */
@@ -419,15 +453,20 @@ export class BrokerState extends DurableObject<Env> {
     return { id: randomId().slice(0, 8), name, role, created: now, expiresAt: now + DEVICE_TTL_MS };
   }
 
-  /** 已授权设备生成一次性配对码；码本身不在设备表里，10 分钟过期；绑生成者的租户。 */
+  /** 已授权设备生成一次性配对码；码本身不在设备表里，10 分钟过期；绑生成者的租户与指定角色。 */
   private async createPairCode(body: any): Promise<{ code: string; expiresAt: number }> {
     const approver = await this.deviceByToken(String(body.deviceToken ?? ""));
     if (approver === null || roleOf(approver) !== "approver") return { code: "", expiresAt: 0 };
+    const role = String(body.role ?? "").trim();
+    if (role !== "" && role !== "requester" && role !== "approver") {
+      return { code: "", expiresAt: 0 };
+    }
     const code = pairCode();
     const expiresAt = Date.now() + PAIR_CODE_TTL_MS;
     await this.ctx.storage.put(CODE_PREFIX + code, {
       expiresAt,
       tenant: tenantOf(approver),
+      role: role === "" ? "requester" : (role as "requester" | "approver"),
     } satisfies PairCodeRecord);
     return { code, expiresAt };
   }
@@ -437,7 +476,7 @@ export class BrokerState extends DurableObject<Env> {
    * 失败一律返回同一个 error，不区分「不存在 / 过期 / 已用过」，避免当探针。
    */
   private async claimPairCode(body: any): Promise<
-    { token: string; name: string; expiresAt: number } | { error: string }
+    { token: string; name: string; role: string; expiresAt: number } | { error: string }
   > {
     const code = String(body.code ?? "").trim().toUpperCase();
     if (code === "") return { error: "invalid_claim" };
@@ -449,11 +488,70 @@ export class BrokerState extends DurableObject<Env> {
     const raw = typeof body.name === "string" ? body.name.trim() : "";
     const name = raw === "" ? "device" : raw.slice(0, 64);
     const token = randomToken();
-    const device = this.newDevice(name, "requester");
-    // requester 继承配对码绑定的租户：claim 出的令牌固定归发码手机所在租户。
+    const device = this.newDevice(name, record.role ?? "requester");
+    // claim 出的设备继承配对码绑定的租户；approver 码不触发换机独占——
+    // 多端批准是显式需求（对齐 Go：独占只在 /v1/device/pair 管理路径生效）。
     device.tenant = record.tenant;
     await this.ctx.storage.put(DEV_PREFIX + token, device);
-    return { token, name, expiresAt: device.expiresAt };
+    return { token, name, role: device.role ?? "requester", expiresAt: device.expiresAt };
+  }
+
+  /**
+   * 扫码配对：手机扫到桌面 QR（含 session + 桌面公钥）后由 index.ts 转来。
+   * 在 caller 租户下创建设备，令牌立即用桌面公钥密封成 envelope 存 offer——
+   * DO 外只见密文（对齐 Go handlePairOffer）。
+   */
+  private async offerCreate(body: any): Promise<
+    { ok: boolean; expiresAt?: number; reason?: string }
+  > {
+    const caller = await this.deviceByToken(String(body.deviceToken ?? ""));
+    if (caller === null || roleOf(caller) !== "approver") {
+      return { ok: false, reason: "unauthorized" };
+    }
+    const session = String(body.session ?? "").trim();
+    if (session.length < 16 || session.length > 128) {
+      return { ok: false, reason: "invalid session" };
+    }
+    const pub = String(body.pub ?? "").trim();
+    const role = String(body.role ?? "").trim() || "approver";
+    if (role !== "approver" && role !== "requester") {
+      return { ok: false, reason: "invalid role" };
+    }
+    const raw = typeof body.name === "string" ? body.name.trim() : "";
+    const name = raw === "" ? "desktop" : raw.slice(0, 64);
+    const token = randomToken();
+    const device = this.newDevice(name, role as "approver" | "requester");
+    // 信封里装的不止令牌：角色与设备名一并密封下发（对齐 Go handlePairOffer），
+    // 桌面拿到即知自己是什么角色，requester 也无需拿新令牌反查设备列表。
+    const grant = new TextEncoder().encode(
+      JSON.stringify({ device_token: token, role: device.role ?? "approver", name: device.name }),
+    );
+    let envelope: string;
+    try {
+      envelope = await sealToPublic(pub, session, grant);
+    } catch {
+      return { ok: false, reason: "cannot seal token" };
+    }
+    device.tenant = tenantOf(caller);
+    await this.ctx.storage.put(DEV_PREFIX + token, device);
+    const expiresAt = Date.now() + OFFER_TTL_MS;
+    await this.ctx.storage.put(OFFER_PREFIX + session, {
+      envelope,
+      expiresAt,
+    } satisfies PairOfferRecord);
+    return { ok: true, expiresAt };
+  }
+
+  /** 桌面轮询取 offer：一次性，读到即删（对齐 Go handlePairOfferPoll）。 */
+  private async offerPoll(body: any): Promise<{ found: boolean; envelope?: string }> {
+    const session = String(body.session ?? "").trim();
+    if (session === "") return { found: false };
+    const key = OFFER_PREFIX + session;
+    const offer = await this.ctx.storage.get<PairOfferRecord>(key);
+    if (!offer) return { found: false };
+    await this.ctx.storage.delete(key);
+    if (offer.expiresAt <= Date.now()) return { found: false };
+    return { found: true, envelope: offer.envelope };
   }
 
   /** 设备列表：不返回令牌本体，只给 id 与元数据；只见自己租户。 */
@@ -592,6 +690,32 @@ export class BrokerState extends DurableObject<Env> {
   private async isApproverInTenant(token: string, tenant: string): Promise<boolean> {
     const record = await this.deviceByToken(token);
     return record !== null && roleOf(record) === "approver" && tenantOf(record) === tenant;
+  }
+
+  /** vault 密文读取：按租户取最新一份；没有就 found=false（对齐 Go 的 404）。 */
+  private async vaultGet(body: any): Promise<{
+    found: boolean;
+    blob?: string;
+    wrap?: string;
+    updatedAt?: number;
+  }> {
+    const tenant = String(body.tenant ?? "") || DEFAULT_TENANT;
+    const record = await this.ctx.storage.get<VaultBlob>(VAULT_PREFIX + tenant);
+    if (!record) return { found: false };
+    return { found: true, blob: record.blob, wrap: record.wrap ?? "", updatedAt: record.updatedAt };
+  }
+
+  /** vault 密文写入：整份覆盖、last-write-wins；broker 不解读内容。 */
+  private async vaultPut(body: any): Promise<{ ok: boolean }> {
+    const tenant = String(body.tenant ?? "") || DEFAULT_TENANT;
+    const blob = typeof body.blob === "string" ? body.blob : "";
+    if (blob === "") return { ok: false };
+    await this.ctx.storage.put(VAULT_PREFIX + tenant, {
+      blob,
+      wrap: typeof body.wrap === "string" ? body.wrap : "",
+      updatedAt: Date.now(),
+    } satisfies VaultBlob);
+    return { ok: true };
   }
 
   private wake(record: PendingRecord): void {
