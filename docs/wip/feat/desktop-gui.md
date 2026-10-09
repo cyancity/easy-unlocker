@@ -99,3 +99,21 @@
 - **UI 重构**：oklch token 逐字对齐 android Theme.kt（dark/light 双套，
   prefers-color-scheme 跟随系统）；修 mixOklch 权重方向（quiet=14% 淡彩
   非 86% 实色）；按钮 nowrap 修 CJK 竖排；req-card 渐变改左侧 accent 条。
+
+## 追加 3：托盘常驻 + 系统通知 + 自动前台
+
+- **tray.go**（windows/linux）：getlantern/systray 常驻托盘，菜单「打开/退出」；
+  图标代码生成（accent 圆角方块 → PNG → ICO 头）。tray_darwin.go 为 no-op 桩：
+  systray 在 darwin 必须占主线程，与 Wails 冲突，暂不实现。
+- **hide-on-close**：`OnBeforeClose` 默认拦截关窗 → 收进托盘；托盘「退出」置
+  `quitting` 才真退，`OnShutdown` 停 systray。
+- **通知**：Windows 走 go-toast/v2 原生 Toast（AppID 注册 + 点击回调拉回窗口 +
+  Short 时长自动消）；darwin/linux fallback beeep。Windows 不允许应用主动删
+  通知中心记录，横幅自动消是正确上限。
+- **后台轮询**：`watchPending` 3s tick，seenReqs 按 request_id 去重只提醒新请求；
+  新请求到达 → 通知 + `autoShown` 弹窗 + `autoPinned` 持续置顶；pending 清零
+  → 撤置顶 + 自动弹出的窗口收回托盘（手动打开的窗口不动）。
+- **竞态修复**：showWindow 的临时置顶（400ms）撤之前检查 autoPinned，避免与
+  通知的持续置顶抢跑。
+- 验收：托盘关窗 → CLI 请求 → 横幅 + 窗口置顶弹出 → 批准 → EASYGET_EXEC_OK +
+  窗口自动收回 ✅

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cyancity/easy-unlocker/cli"
@@ -28,6 +29,12 @@ type App struct {
 	vault     *vault // nil = 未解锁
 	requester *cli.Client
 	qrSession *qrPairSession // 进行中的扫码配对，nil = 无
+
+	windowHidden atomic.Bool            // 窗口被关到托盘
+	quitting     atomic.Bool            // 托盘「退出」= 真退出，绕过 hide-on-close
+	autoPinned   atomic.Bool            // 通知时顶过 AlwaysOnTop，pending 清零时撤
+	autoShown    atomic.Bool            // 通知把隐藏的窗口弹了出来，pending 清零时收回
+	seenReqs     map[string]struct{}    // 已知 pending 请求 id，后台提醒去重用
 }
 
 func NewApp() *App {
@@ -43,7 +50,10 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.initToast()
 	go a.watchSessionLock()
+	go a.watchPending()
+	go a.runTray()
 }
 
 // ---------- 状态 ----------
@@ -135,6 +145,7 @@ func (a *App) Unpair() error {
 	a.mu.Lock()
 	a.cfg = config{}
 	a.requester = nil
+	a.seenReqs = nil
 	if a.vault != nil {
 		a.vault.clear()
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"log"
 	"os"
@@ -36,8 +37,17 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 13, G: 15, B: 20, A: 255},
 		OnStartup:        app.startup,
-		Bind:             []interface{}{app},
-		LogLevel:         logger.DEBUG,
+		// 常驻托盘：关窗只隐藏，真退出走托盘「退出」。
+		OnBeforeClose: func(ctx context.Context) bool {
+			if app.quitting.Load() {
+				return false
+			}
+			app.hideWindow()
+			return true
+		},
+		OnShutdown: func(ctx context.Context) { app.stopTray() },
+		Bind:       []interface{}{app},
+		LogLevel:   logger.DEBUG,
 	})
 	if err != nil {
 		log.Fatal("wails.Run: ", err)
