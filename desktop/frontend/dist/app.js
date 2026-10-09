@@ -30,6 +30,7 @@ function call(fn, ...args) {
 
 function goto(p) {
   page = p;
+  document.body.classList.remove("navless");
   document.querySelectorAll(".page").forEach((el) => el.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach((el) => el.classList.toggle("active", el.dataset.page === p));
   $("page-" + p).classList.add("active");
@@ -47,6 +48,7 @@ function gated() {
 
 function showLock() {
   page = "lock";
+  document.body.classList.add("navless");
   document.querySelectorAll(".page").forEach((el) => el.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach((el) => el.classList.remove("active"));
   $("page-lock").classList.add("active");
@@ -54,13 +56,17 @@ function showLock() {
   $("lock-sub").textContent = s.vault_state === "none"
     ? "本地还没有库——先从服务器同步一次，再用密码解锁。"
     : "本 session 只需解锁一次——锁屏、重启或退出后才会重新上锁。";
-  $("lock-sync-row").style.display = s.vault_state === "none" ? "" : "none";
   $("lock-msg").textContent = "";
   setTimeout(() => $("lock-input").focus(), 50);
+  // 缓存的 blob 可能落后（手机上改密码/加条目）——进门禁页静默拉最新。
+  if (s.paired) {
+    A.SyncVault().then(async () => { await refreshStatus(); }).catch(() => {});
+  }
 }
 
 function showSetup() {
   page = "setup";
+  document.body.classList.add("navless");
   document.querySelectorAll(".page").forEach((el) => el.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach((el) => el.classList.remove("active"));
   $("page-setup").classList.add("active");
@@ -209,14 +215,16 @@ async function refreshPending() {
 async function doUnlock(inputEl, msgEl) {
   const v = inputEl.value;
   if (!v) { msgEl.textContent = "输入解锁密码或恢复码"; return; }
+  msgEl.textContent = "";
   try {
     const n = await A.Unlock(v);
     inputEl.value = "";
-    msgEl.textContent = "";
     toast(`解锁成功，${n} 条`);
     await refreshStatus();
     goto("approve");
   } catch (e) {
+    // 本地 blob 可能落后于手机（改了密码/条目）——拉一次再试一遍。
+    try { if (await A.SyncVault()) { try { const n = await A.Unlock(v); inputEl.value = ""; toast(`解锁成功，${n} 条`); await refreshStatus(); goto("approve"); return; } catch (e2) { e = e2; } } } catch (e2) {}
     msgEl.innerHTML = `<span class="danger-text">${esc(String(e).replace(/^Error: /, ""))}</span>`;
   }
 }

@@ -95,6 +95,10 @@ html, body {
 
 #app { display: flex; height: 100vh; }
 
+/* 锁屏/配对页：侧栏整体隐藏，主区独占 */
+body.navless nav { display: none; }
+body.navless main { flex: 1; }
+
 ::selection { background: var(--accent-soft); }
 
 /* ---- 侧栏 ---- */
@@ -271,9 +275,16 @@ button.link {
 button.link:hover { text-decoration: underline; }
 
 /* ---- 锁屏页 ---- */
+.page#page-lock.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  max-width: none;
+}
 .lock-wrap {
-  max-width: 340px;
-  margin: 9vh auto 0;
+  width: 340px;
+  max-width: 100%;
 }
 .lock-glyph {
   width: 64px; height: 64px;
