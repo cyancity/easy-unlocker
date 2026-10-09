@@ -1077,7 +1077,7 @@ private fun ExternalDeviceRow(device: PairedDevice, onRename: (PairedDevice) -> 
 fun DevicesPane(
     state: UiState,
     onBack: () -> Unit,
-    onAdd: () -> Unit,
+    onAdd: (String) -> Unit,
     onRenew: () -> Unit,
     onRename: (String, PairedDevice) -> Unit,
     onRevoke: (String, PairedDevice) -> Unit,
@@ -1109,7 +1109,10 @@ fun DevicesPane(
                 .padding(top = 14.dp),
         ) {
             if (state.pairCode.isNotBlank()) {
-                Text("一次性配对码", color = Tokens.muted, fontFamily = FontFamily.Monospace, fontSize = 11.sp, letterSpacing = 1.1.sp)
+                Text(
+                    if (state.pairCodeRole == "approver") "一次性配对码 · 桌面批准端" else "一次性配对码",
+                    color = Tokens.muted, fontFamily = FontFamily.Monospace, fontSize = 11.sp, letterSpacing = 1.1.sp,
+                )
                 Box(
                     Modifier
                         .fillMaxWidth()
@@ -1152,23 +1155,33 @@ fun DevicesPane(
                         },
                     )
                 }
-                Text("在新机器上运行：", color = Tokens.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 14.dp))
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(Dimens.rCard))
-                        .background(Tokens.surface)
-                        .border(1.dp, Tokens.border, RoundedCornerShape(Dimens.rCard))
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                ) {
+                if (state.pairCodeRole == "approver") {
                     Text(
-                        "easyGet pair --broker ${state.brokerUrl} --code ${state.pairCode}",
-                        color = Tokens.fg,
-                        fontFamily = FontFamily.Monospace,
+                        "在桌面端 easy-unlocker 的「配对」里输入这个码，桌面就能直接批准请求、同步本库。",
+                        color = Tokens.muted,
                         fontSize = 12.sp,
                         lineHeight = 18.sp,
+                        modifier = Modifier.padding(top = 14.dp),
                     )
+                } else {
+                    Text("在新机器上运行：", color = Tokens.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 14.dp))
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .clip(RoundedCornerShape(Dimens.rCard))
+                            .background(Tokens.surface)
+                            .border(1.dp, Tokens.border, RoundedCornerShape(Dimens.rCard))
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                    ) {
+                        Text(
+                            "easyGet pair --broker ${state.brokerUrl} --code ${state.pairCode}",
+                            color = Tokens.fg,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                        )
+                    }
                 }
                 Text(
                     "换来的设备令牌 180 天有效，可随时在这里撤销。",
@@ -1242,9 +1255,13 @@ fun DevicesPane(
         }
         ActionsColumn {
             when {
-                state.pairCode.isNotBlank() && codeLeft <= 0 -> PrimaryButton("重新生成配对码") { onAdd() }
+                state.pairCode.isNotBlank() && codeLeft <= 0 -> PrimaryButton("重新生成配对码") { onAdd(state.pairCodeRole.ifBlank { "requester" }) }
                 state.pairCode.isNotBlank() -> QuietButton("收起配对码") { onDismissCode() }
-                else -> PrimaryButton("添加设备（生成配对码）") { onAdd() }
+                else -> {
+                    PrimaryButton("添加设备（生成配对码）") { onAdd("requester") }
+                    Spacer(Modifier.height(8.dp))
+                    QuietButton("配对桌面批准端（GUI）") { onAdd("approver") }
+                }
             }
         }
     }

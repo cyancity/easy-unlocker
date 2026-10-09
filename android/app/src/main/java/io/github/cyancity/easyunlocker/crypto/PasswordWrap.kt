@@ -70,6 +70,9 @@ class PasswordWrap(private val wrapFile: File) {
         wrapFile.delete()
     }
 
+    /** wrap 文件原文（JSON 密文），同步给桌面端做本地解锁用；没有密码时给空串。 */
+    fun wrapJson(): String = if (wrapFile.exists()) wrapFile.readText() else ""
+
     private fun derive(password: String, salt: ByteArray, ops: Int, memKiB: Int): ByteArray {
         val bytes = password.toByteArray(Charsets.UTF_8)
         return try {

@@ -84,6 +84,8 @@ data class UiState(
     val otherPending: List<OtherPending> = emptyList(),
     val pairCode: String = "",
     val pairCodeExpiresAt: Long = 0,
+    /** 这张配对码换出来的角色：requester（取凭据）/ approver（桌面批准端）。 */
+    val pairCodeRole: String = "",
     /** 每 +1 表示「把过期的推送通知收掉」；MainActivity 监听它调 Notifications.clearAll。 */
     val clearNotifications: Int = 0,
 ) {
@@ -119,6 +121,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 待导入条目（含明文密码）。只活在内存里，绝不进 UiState / 日志 / 文件。 */
     private var pendingImport: List<ImportCandidate> = emptyList()
+
+    init {
+        // 库每次落盘都把密文推一份到当前网关：broker 只保管 blob，桌面端拿它+恢复码/密码本地解开。
+        repo.onSaved = { pushVaultQuiet() }
+    }
+
     private val watch = object : Runnable {
         override fun run() {
             if (!watching) return
@@ -760,6 +768,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             devicesLoading = true,
             pairCode = "",
             pairCodeExpiresAt = 0,
+            pairCodeRole = "",
         )
         loadDevices()
     }
@@ -800,16 +809,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }.start()
     }
 
-    /** 生成一次性配对码：10 分钟有效，新机器 `easyGet pair --code <码>` 用。 */
-    fun createPairCode() {
+    /**
+     * 生成一次性配对码：10 分钟有效。
+     * role=requester → 新机器 `easyGet pair --code <码>`；role=approver → 桌面 GUI 输码配对。
+     */
+    fun createPairCode(role: String = "requester") {
         val pairing = _state.value.activePairing ?: return
         _state.value = _state.value.copy(devicesLoading = true)
         bg {
-            val result = runCatching { BrokerClient(pairing.url, pairing.deviceToken).createPairCode() }
+            val result = runCatching { BrokerClient(pairing.url, pairing.deviceToken).createPairCode(role) }
             main.post {
                 result.fold(
                     onSuccess = { (code, expiresAt) ->
-                        _state.value = _state.value.copy(pairCode = code, pairCodeExpiresAt = expiresAt, devicesLoading = false)
+                        _state.value = _state.value.copy(
+                            pairCode = code,
+                            pairCodeExpiresAt = expiresAt,
+                            pairCodeRole = role,
+                            devicesLoading = false,
+                        )
                     },
                     onFailure = { e ->
                         _state.value = _state.value.copy(devicesLoading = false, message = e.message ?: "生成配对码失败")
@@ -820,7 +837,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun clearPairCode() {
-        _state.value = _state.value.copy(pairCode = "", pairCodeExpiresAt = 0)
+        _state.value = _state.value.copy(pairCode = "", pairCodeExpiresAt = 0, pairCodeRole = "")
+    }
+
+    /**
+     * 库落盘后静默同步到当前网关：blob 全程密文，broker 不解读。
+     * 不走 bg{}——同步失败不该弹全局错误、更不该锁库；下次保存会再推。
+     */
+    private fun pushVaultQuiet() {
+        val pairing = _state.value.activePairing ?: return
+        if (pairing.deviceToken.isBlank() || !repo.exists()) return
+        Thread {
+            runCatching {
+                BrokerClient(pairing.url, pairing.deviceToken).uploadVault(
+                    String(repo.exportBytes(), Charsets.UTF_8),
+                    repo.passwordWrapJson(),
+                )
+            }
+        }.start()
     }
 
     fun renewDevice() {

@@ -69,7 +69,7 @@ fun AppScreen(
     onHoldVault: () -> Unit,
     onReleaseVault: () -> Unit,
     onSelectField: (String) -> Unit,
-    onCreatePairCode: () -> Unit,
+    onCreatePairCode: (String) -> Unit,
     onClearPairCode: () -> Unit,
     onRenewDevice: () -> Unit,
     onRenameDevice: (String, String, String) -> Unit,

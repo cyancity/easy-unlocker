@@ -87,6 +87,8 @@ data class PairedDevice(
     val lastUsedAt: String,
     val expiresAt: String,
     val current: Boolean,
+    /** requester = 只能取凭据；approver = 也能批准（桌面端走这个）。老记录空 = approver。 */
+    val role: String = "",
 )
 
 data class PendingRequest(

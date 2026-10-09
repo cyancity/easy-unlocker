@@ -76,11 +76,23 @@ function tenantOf(device: DeviceRecord): string {
   return device.tenant ?? DEFAULT_TENANT;
 }
 
-/** 一次性配对码：换一次设备令牌就作废；tenant 绑生成它的 approver 所在租户。 */
+/** 一次性配对码：换一次设备令牌就作废；tenant 绑生成它的 approver 所在租户；
+ * role 决定换出的令牌是 requester（默认）还是 approver（桌面批准端）。 */
 interface PairCodeRecord {
   expiresAt: number;
   tenant: string;
+  role?: "requester" | "approver";
 }
+
+/** 租户级 vault 同步载体：blob 是 vault.eu1 密文原文，wrap 是可选的密码包裹。
+ * broker 只保管不解读——解开它要恢复码或解锁密码，都在端上。 */
+interface VaultBlob {
+  blob: string;
+  wrap?: string;
+  updatedAt: number;
+}
+
+const VAULT_PREFIX = "vault:";
 
 function pairCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(8));
@@ -179,6 +191,10 @@ export class BrokerState extends DurableObject<Env> {
         return json(200, await this.renewDevice(body));
       case "/push-token":
         return json(200, await this.setPushToken(body));
+      case "/vault-get":
+        return json(200, await this.vaultGet(body));
+      case "/vault-put":
+        return json(200, await this.vaultPut(body));
       case "/forget-device":
         return json(200, await this.forgetDevice(body));
       case "/device-authorized": {
@@ -419,15 +435,20 @@ export class BrokerState extends DurableObject<Env> {
     return { id: randomId().slice(0, 8), name, role, created: now, expiresAt: now + DEVICE_TTL_MS };
   }
 
-  /** 已授权设备生成一次性配对码；码本身不在设备表里，10 分钟过期；绑生成者的租户。 */
+  /** 已授权设备生成一次性配对码；码本身不在设备表里，10 分钟过期；绑生成者的租户与指定角色。 */
   private async createPairCode(body: any): Promise<{ code: string; expiresAt: number }> {
     const approver = await this.deviceByToken(String(body.deviceToken ?? ""));
     if (approver === null || roleOf(approver) !== "approver") return { code: "", expiresAt: 0 };
+    const role = String(body.role ?? "").trim();
+    if (role !== "" && role !== "requester" && role !== "approver") {
+      return { code: "", expiresAt: 0 };
+    }
     const code = pairCode();
     const expiresAt = Date.now() + PAIR_CODE_TTL_MS;
     await this.ctx.storage.put(CODE_PREFIX + code, {
       expiresAt,
       tenant: tenantOf(approver),
+      role: role === "" ? "requester" : (role as "requester" | "approver"),
     } satisfies PairCodeRecord);
     return { code, expiresAt };
   }
@@ -437,7 +458,7 @@ export class BrokerState extends DurableObject<Env> {
    * 失败一律返回同一个 error，不区分「不存在 / 过期 / 已用过」，避免当探针。
    */
   private async claimPairCode(body: any): Promise<
-    { token: string; name: string; expiresAt: number } | { error: string }
+    { token: string; name: string; role: string; expiresAt: number } | { error: string }
   > {
     const code = String(body.code ?? "").trim().toUpperCase();
     if (code === "") return { error: "invalid_claim" };
@@ -449,11 +470,12 @@ export class BrokerState extends DurableObject<Env> {
     const raw = typeof body.name === "string" ? body.name.trim() : "";
     const name = raw === "" ? "device" : raw.slice(0, 64);
     const token = randomToken();
-    const device = this.newDevice(name, "requester");
-    // requester 继承配对码绑定的租户：claim 出的令牌固定归发码手机所在租户。
+    const device = this.newDevice(name, record.role ?? "requester");
+    // claim 出的设备继承配对码绑定的租户；approver 码不触发换机独占——
+    // 多端批准是显式需求（对齐 Go：独占只在 /v1/device/pair 管理路径生效）。
     device.tenant = record.tenant;
     await this.ctx.storage.put(DEV_PREFIX + token, device);
-    return { token, name, expiresAt: device.expiresAt };
+    return { token, name, role: device.role ?? "requester", expiresAt: device.expiresAt };
   }
 
   /** 设备列表：不返回令牌本体，只给 id 与元数据；只见自己租户。 */
@@ -592,6 +614,32 @@ export class BrokerState extends DurableObject<Env> {
   private async isApproverInTenant(token: string, tenant: string): Promise<boolean> {
     const record = await this.deviceByToken(token);
     return record !== null && roleOf(record) === "approver" && tenantOf(record) === tenant;
+  }
+
+  /** vault 密文读取：按租户取最新一份；没有就 found=false（对齐 Go 的 404）。 */
+  private async vaultGet(body: any): Promise<{
+    found: boolean;
+    blob?: string;
+    wrap?: string;
+    updatedAt?: number;
+  }> {
+    const tenant = String(body.tenant ?? "") || DEFAULT_TENANT;
+    const record = await this.ctx.storage.get<VaultBlob>(VAULT_PREFIX + tenant);
+    if (!record) return { found: false };
+    return { found: true, blob: record.blob, wrap: record.wrap ?? "", updatedAt: record.updatedAt };
+  }
+
+  /** vault 密文写入：整份覆盖、last-write-wins；broker 不解读内容。 */
+  private async vaultPut(body: any): Promise<{ ok: boolean }> {
+    const tenant = String(body.tenant ?? "") || DEFAULT_TENANT;
+    const blob = typeof body.blob === "string" ? body.blob : "";
+    if (blob === "") return { ok: false };
+    await this.ctx.storage.put(VAULT_PREFIX + tenant, {
+      blob,
+      wrap: typeof body.wrap === "string" ? body.wrap : "",
+      updatedAt: Date.now(),
+    } satisfies VaultBlob);
+    return { ok: true };
   }
 
   private wake(record: PendingRecord): void {

@@ -25,6 +25,8 @@ const (
 	defaultNotifyTimeout = 5 * time.Second
 	defaultMaxPending    = 256
 	maxRequestBody       = 64 << 10
+	// vault 同步体比请求体大得多：整库密文 + wrap，上限 2MB。
+	maxVaultBody = 2 << 20
 )
 
 type ServerConfig struct {
@@ -39,6 +41,8 @@ type ServerConfig struct {
 	FCM           *FCMClient
 	// Version 是构建时注入的 release tag（vYYYY.MM.DD[-n]），/v1/version 报给 CLI 做更新提示。
 	Version       string
+	// VaultFile 是 vault 同步密文的持久化文件；空则只驻留内存。
+	VaultFile     string
 }
 
 type Server struct {
@@ -59,6 +63,8 @@ type Server struct {
 	pending   map[string]*pendingRequest
 	devices   map[string]deviceRecord
 	pairCodes map[string]pairCode
+	vaults    map[string]vaultBlob
+	vaultFile string
 	// pendingByKey 按 request_key 索引 pending：断线重连时同 key 续等原请求。
 	pendingByKey map[string]*pendingRequest
 }
@@ -67,10 +73,20 @@ type Server struct {
 // 真取消（Ctrl-C 走人）也最多在手机上多挂这一会儿就自清。
 const detachGrace = 15 * time.Second
 
-// pairCode 绑生成它的 approver 所在租户：claim 出的 requester 落在同租户。
+// pairCode 绑生成它的 approver 所在租户：claim 出的设备落在同租户。
+// role 决定换出来的令牌是 requester（只能取凭据）还是 approver（桌面批准端）。
 type pairCode struct {
 	expires time.Time
 	tenant  string
+	role    string
+}
+
+// vaultBlob 是租户级 vault 同步载体：blob 是 vault.eu1 密文原文（opaque JSON），
+// wrap 是可选的 password.wrap（密码包裹的 vault key），broker 只存不解读。
+type vaultBlob struct {
+	Blob      string    `json:"blob"`
+	Wrap      string    `json:"wrap,omitempty"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 const (
@@ -192,6 +208,7 @@ func NewServer(config ServerConfig) (*Server, error) {
 		maxTTL:        config.MaxTTL,
 		notifyTimeout: config.NotifyTimeout,
 		deviceFile:    strings.TrimSpace(config.DeviceFile),
+		vaultFile:     strings.TrimSpace(config.VaultFile),
 		fcm:           config.FCM,
 		version:       config.Version,
 		maxPending:    defaultMaxPending,
@@ -199,8 +216,10 @@ func NewServer(config ServerConfig) (*Server, error) {
 		pendingByKey:  make(map[string]*pendingRequest),
 		pairCodes:     make(map[string]pairCode),
 		devices:       make(map[string]deviceRecord),
+		vaults:        make(map[string]vaultBlob),
 	}
 	s.loadDevices()
+	s.loadVaults()
 	return s, nil
 }
 
@@ -262,6 +281,8 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		s.handleDevicePending(w, r)
 	case r.URL.Path == "/v1/device/push-token":
 		s.handleDevicePushToken(w, r)
+	case r.URL.Path == "/v1/vault":
+		s.handleVault(w, r)
 	case strings.HasPrefix(r.URL.Path, "/v1/decision/"):
 		s.handleDecision(w, r)
 	default:
@@ -660,6 +681,20 @@ func (s *Server) handleDevicePairCode(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusMethodNotAllowed, protocol.Response{Status: protocol.StatusFailed, Message: "method not allowed"})
 		return
 	}
+	// 可选 body {role}：requester（默认，取凭据设备）/ approver（桌面批准端）。
+	// 老客户端不带 body，当 requester 处理。
+	var body struct {
+		Role string `json:"role"`
+	}
+	_ = decodeJSON(r, &body)
+	role := strings.TrimSpace(body.Role)
+	if role == "" {
+		role = deviceRoleRequester
+	}
+	if role != deviceRoleRequester && role != deviceRoleApprover {
+		writeJSON(w, http.StatusBadRequest, protocol.Response{Status: "invalid_request", Message: "invalid role"})
+		return
+	}
 	s.mu.Lock()
 	approver, approverOK := s.authorizedDeviceLocked(r.Header.Get("Authorization"))
 	if !approverOK || approver.role() != deviceRoleApprover {
@@ -684,7 +719,7 @@ func (s *Server) handleDevicePairCode(w http.ResponseWriter, r *http.Request) {
 		code = append(code, pairCodeAlphabet[int(b)%len(pairCodeAlphabet)])
 	}
 	expires := now.Add(pairCodeTTL)
-	s.pairCodes[string(code)] = pairCode{expires: expires, tenant: approver.tenant()}
+	s.pairCodes[string(code)] = pairCode{expires: expires, tenant: approver.tenant(), role: role}
 	s.mu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{"code": string(code), "expires_at": expires.Format(time.RFC3339)})
 }
@@ -734,9 +769,13 @@ func (s *Server) handlePairClaim(w http.ResponseWriter, r *http.Request) {
 	// 必须走 hex：原始随机字节当 map key / JSON 字符串时会因非法 UTF-8 被替换，
 	// CLI 拿到的令牌就和 broker 存的对不上，之后全部 401。
 	token := hex.EncodeToString(raw)
-	device := s.newDeviceLocked(name, deviceRoleRequester)
-	// requester 继承配对码绑定的租户：CLI 从 pair-code 换令牌起就固定归
-	// 发码那台手机所在的租户，之后请求都路由给它。
+	role := pc.role
+	if role == "" {
+		role = deviceRoleRequester
+	}
+	device := s.newDeviceLocked(name, role)
+	// claim 出的设备继承配对码绑定的租户：令牌从换码起就固定归
+	// 发码那台手机所在的租户。approver 码不触发换机独占——多端批准是显式需求。
 	device.Tenant = pc.tenant
 	s.devices[token] = device
 	err := s.saveDevicesLocked()
@@ -748,6 +787,7 @@ func (s *Server) handlePairClaim(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"device_token": string(token),
 		"name":         device.Name,
+		"role":         device.role(),
 		"expires_at":   device.ExpiresAt.Format(time.RFC3339),
 	})
 }
@@ -982,6 +1022,89 @@ func (s *Server) handleDevicePushToken(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// ---------- vault 同步：租户级密文保管所，broker 只存不解读 ----------
+
+func (s *Server) handleVault(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	caller, callerOK := s.authorizedDeviceLocked(r.Header.Get("Authorization"))
+	if !callerOK || caller.role() != deviceRoleApprover {
+		s.mu.Unlock()
+		writeJSON(w, http.StatusUnauthorized, protocol.Response{Status: "unauthorized", Message: "approver device required"})
+		return
+	}
+	tenant := caller.tenant()
+	switch r.Method {
+	case http.MethodGet:
+		blob, found := s.vaults[tenant]
+		s.mu.Unlock()
+		if !found {
+			writeJSON(w, http.StatusNotFound, protocol.Response{Status: protocol.StatusFailed, Message: "no vault synced"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"blob":       blob.Blob,
+			"wrap":       blob.Wrap,
+			"updated_at": blob.UpdatedAt.Format(time.RFC3339),
+		})
+	case http.MethodPost:
+		s.mu.Unlock()
+		var body struct {
+			Blob string `json:"blob"`
+			Wrap string `json:"wrap"`
+		}
+		if err := decodeJSONLimit(r, &body, maxVaultBody); err != nil || strings.TrimSpace(body.Blob) == "" {
+			writeJSON(w, http.StatusBadRequest, protocol.Response{Status: "invalid_request", Message: "blob required"})
+			return
+		}
+		s.mu.Lock()
+		s.vaults[tenant] = vaultBlob{Blob: body.Blob, Wrap: body.Wrap, UpdatedAt: time.Now().UTC()}
+		err := s.saveVaultsLocked()
+		s.mu.Unlock()
+		if err != nil {
+			writeJSON(w, http.StatusServiceUnavailable, protocol.Response{Status: protocol.StatusFailed, Message: "cannot persist vault"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	default:
+		s.mu.Unlock()
+		writeJSON(w, http.StatusMethodNotAllowed, protocol.Response{Status: protocol.StatusFailed, Message: "method not allowed"})
+	}
+}
+
+func (s *Server) loadVaults() {
+	if s.vaultFile == "" {
+		return
+	}
+	raw, err := os.ReadFile(s.vaultFile)
+	if err != nil {
+		return
+	}
+	var dump map[string]vaultBlob
+	if json.Unmarshal(raw, &dump) == nil && dump != nil {
+		s.vaults = dump
+	}
+}
+
+func (s *Server) saveVaultsLocked() error {
+	if s.vaultFile == "" {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(s.vaultFile), 0o700); err != nil && !os.IsExist(err) {
+		if filepath.Dir(s.vaultFile) != "." {
+			return err
+		}
+	}
+	raw, err := json.Marshal(s.vaults)
+	if err != nil {
+		return err
+	}
+	tmp := s.vaultFile + ".tmp"
+	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, s.vaultFile)
+}
+
 func (s *Server) push(ctx context.Context, tenant string, notification Notification) error {
 	sent := false
 	if s.fcm != nil {
@@ -1178,8 +1301,12 @@ func (s *Server) authorizedBearer(value string, expected []byte) bool {
 }
 
 func decodeJSON(r *http.Request, destination any) error {
+	return decodeJSONLimit(r, destination, maxRequestBody)
+}
+
+func decodeJSONLimit(r *http.Request, destination any, limit int64) error {
 	defer r.Body.Close()
-	decoder := json.NewDecoder(io.LimitReader(r.Body, maxRequestBody))
+	decoder := json.NewDecoder(io.LimitReader(r.Body, limit))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(destination); err != nil {
 		return err

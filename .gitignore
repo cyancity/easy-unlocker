@@ -45,3 +45,8 @@ worker/.prod.vars
 
 # Xcode
 xcuserdata/
+
+# desktop build artifacts
+desktop/desktop.exe
+desktop/build/
+desktop/easy-unlocker
