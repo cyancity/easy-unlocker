@@ -53,6 +53,10 @@ func WriteConfig(configPath, brokerURL, token string) error {
 		discard()
 		return errors.New("无法保护配置文件")
 	}
+	if err := hardenPrivateFile(name); err != nil {
+		discard()
+		return errors.New("无法保护配置文件")
+	}
 	if _, err := tmp.WriteString(content); err != nil {
 		discard()
 		return errors.New("无法写入配置文件")
@@ -65,7 +69,6 @@ func WriteConfig(configPath, brokerURL, token string) error {
 		_ = os.Remove(name)
 		return errors.New("无法替换配置文件")
 	}
-	hardenPrivateFile(configPath)
 	return nil
 }
 

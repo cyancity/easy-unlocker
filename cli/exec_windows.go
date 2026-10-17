@@ -30,8 +30,7 @@ func RunWithSecret(command string, secret []byte, item string, envName string) (
 	if err != nil {
 		return 0, err
 	}
-	defer os.Remove(file.Name())
-	defer file.Close()
+	defer os.Remove(file)
 
 	script, err := commandScript(command)
 	if err != nil {
@@ -43,7 +42,7 @@ func RunWithSecret(command string, secret []byte, item string, envName string) (
 	cmd.Env = append(os.Environ(),
 		envName+"="+string(secret),
 		itemEnvName+"="+item,
-		fdEnvName+"="+file.Name(),
+		fdEnvName+"="+file,
 	)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -81,28 +80,32 @@ func commandScript(command string) (string, error) {
 }
 
 // namedSecretFile 写一个有名字的临时文件；Windows 下 fd 传不了，只能传路径。
-func namedSecretFile(secret []byte) (*os.File, error) {
+func namedSecretFile(secret []byte) (string, error) {
 	file, err := os.CreateTemp(os.TempDir(), ".easyget-*")
 	if err != nil {
-		return nil, errors.New("无法创建临时载体")
+		return "", errors.New("无法创建临时载体")
 	}
 	name := file.Name()
 	discard := func() {
 		_ = file.Close()
 		_ = os.Remove(name)
 	}
-	hardenPrivateFile(name)
+	if err := hardenPrivateFile(name); err != nil {
+		discard()
+		return "", errors.New("无法保护临时载体")
+	}
 	if _, err := file.Write(secret); err != nil {
 		discard()
-		return nil, errors.New("无法写入临时载体")
+		return "", errors.New("无法写入临时载体")
 	}
 	if err := file.Sync(); err != nil {
 		discard()
-		return nil, errors.New("无法持久化临时载体")
+		return "", errors.New("无法持久化临时载体")
 	}
-	if _, err := file.Seek(0, 0); err != nil {
-		discard()
-		return nil, errors.New("无法复位临时载体")
+	// .NET 等读取者不共享写句柄，子进程启动前必须关闭载体。
+	if err := file.Close(); err != nil {
+		_ = os.Remove(name)
+		return "", errors.New("无法关闭临时载体")
 	}
-	return file, nil
+	return name, nil
 }

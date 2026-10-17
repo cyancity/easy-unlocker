@@ -156,6 +156,13 @@ func WriteProtectedFile(path string, value []byte, mode os.FileMode) error {
 	if err != nil {
 		return errors.New("目标文件已存在或无法创建")
 	}
+	if mode.Perm()&0o077 == 0 {
+		if err := hardenPrivateFile(path); err != nil {
+			_ = file.Close()
+			_ = os.Remove(path)
+			return errors.New("无法保护文件")
+		}
+	}
 	if _, err := file.Write(value); err != nil {
 		_ = file.Close()
 		_ = os.Remove(path)

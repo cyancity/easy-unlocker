@@ -103,7 +103,9 @@ func TestWindowsPrivateFileRemovesExplicitPublicGrant(t *testing.T) {
 		t.Fatal(err)
 	}
 	setWindowsTestDACL(t, path, "D:P(A;;FA;;;"+windowsTestSID(t).String()+")(A;;FR;;;WD)")
-	hardenPrivateFile(path)
+	if err := hardenPrivateFile(path); err != nil {
+		t.Fatal(err)
+	}
 	assertWindowsPrivate(t, path)
 }
 

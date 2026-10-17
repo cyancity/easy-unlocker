@@ -7,10 +7,13 @@
 param(
     [string]$Broker = $env:EASY_UNLOCKER_BROKER_URL,
     [string]$Code,
+    [string]$BinaryPath = $env:EASYGET_BINARY,
+    [switch]$SessionOnly,
     [string]$InstallDir = $(if ($env:EASYGET_INSTALL_DIR) { $env:EASYGET_INSTALL_DIR } else { "$env:LOCALAPPDATA\Programs\easy-unlocker" })
 )
 
 $ErrorActionPreference = 'Stop'
+if ($Code -and -not $Broker) { throw '-Code 需要同时指定 -Broker' }
 
 $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' }
 $binary = "easyGet-windows-$arch.exe"
@@ -18,24 +21,38 @@ $url = "https://github.com/cyancity/easy-unlocker/releases/latest/download/$bina
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 $target = Join-Path $InstallDir 'easyGet.exe'
-$tmp = Join-Path $env:TEMP "easyGet-$PID.exe"
-
-Write-Host "下载 $url"
-Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
-Move-Item -Force $tmp $target
-
-# 装到用户级 PATH（已存在则不重复写）
-$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-if (-not ($userPath -split ';' | Where-Object { $_ -eq $InstallDir })) {
-    [Environment]::SetEnvironmentVariable('Path', "$userPath;$InstallDir", 'User')
-    $env:Path = "$env:Path;$InstallDir"
-    Write-Host "已加入用户 PATH：$InstallDir（新开的终端生效）"
+$tmp = Join-Path $InstallDir ('.easyGet-' + [guid]::NewGuid().ToString('N') + '.exe')
+try {
+    if ($BinaryPath) {
+        Copy-Item -LiteralPath $BinaryPath -Destination $tmp
+    } else {
+        Write-Host "下载 $url"
+        Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
+    }
+    $installedVersion = & $tmp --version
+    if ($LASTEXITCODE -ne 0) { throw '下载的 easyGet 无法运行，请检查版本与系统架构' }
+    Move-Item -LiteralPath $tmp -Destination $target -Force
+} finally {
+    if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
 }
+
+# 放到 PATH 前面，避免继续调用旧安装目录里的二进制。
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+$remainingPath = @($userPath -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ne $InstallDir.TrimEnd('\') })
+$newUserPath = (@($InstallDir) + $remainingPath) -join ';'
+if (-not $SessionOnly -and $newUserPath -ne $userPath) {
+    [Environment]::SetEnvironmentVariable('Path', $newUserPath, 'User')
+}
+$processPath = @($env:Path -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ne $InstallDir.TrimEnd('\') })
+$env:Path = (@($InstallDir) + $processPath) -join ';'
 
 if ($Broker -and $Code) {
     & $target pair --broker $Broker --code $Code
     if ($LASTEXITCODE -ne 0) { throw "easyGet pair 失败（$LASTEXITCODE）" }
+    & $target ping
+    if ($LASTEXITCODE -ne 0) { throw "easyGet ping 失败（$LASTEXITCODE）" }
 }
 
-& $target ping
-Write-Host "easyGet 已安装到 $target"
+Write-Host "easyGet $installedVersion 已安装到 $target"
+if (-not $SessionOnly) { Write-Host '新开的终端使用更新后的 PATH。' }
+Write-Host '尚未配对时运行 easyGet pair --broker <url> --code <配对码>'

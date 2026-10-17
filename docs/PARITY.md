@@ -60,6 +60,7 @@
 | `pair --code`（绑租户） | ✅ | 设备名默认 `user@host`（可用 `--name` 覆盖），手机设备页显示的就是它 |
 | 显式传租户 | ➖ 设计上不需要（token 反查） |
 | `version` 子命令 + ping 报新版本 | ✅ | 版本经 release.sh `-X main.version=$TAG` 注入；`env/ssh/list` 成功后一天一次静默检查（`~/.config/easy-unlocker/.version-check`） |
+| Windows 原生配置 / 文件 / `--exec` | ✅ | NTFS 私有 ACL，保护失败则停止写入；cmd 语法，临时载体在子进程退出后删除；支持 PowerShell/.NET 文件读取。`version` / `--version` 不依赖配置 |
 
 ## Desktop（Wails，Windows/macOS）
 

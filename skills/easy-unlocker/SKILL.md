@@ -13,7 +13,7 @@ When the agent needs a credential, call `easyGet`. The phone approves. Plaintext
 ## Quick start
 
 ```bash
-# preferred: nothing touches disk — the value goes into the child process only
+# preferred: the child receives the value; its temporary carrier is removed on exit
 easyGet env OPENAI_API_KEY --exec 'python run.py' --for 'batch scoring job'
 
 # only when a file must stay on this machine
@@ -30,6 +30,17 @@ curl -L -o /tmp/easyGet "https://github.com/cyancity/easy-unlocker/releases/late
 install -m 755 /tmp/easyGet ~/.local/bin/easyGet && easyGet --help
 ```
 
+On Windows use PowerShell, then open a new terminal so it sees the updated PATH:
+
+```powershell
+$installer = Join-Path $env:TEMP 'easy-unlocker-install.ps1'
+Invoke-WebRequest 'https://raw.githubusercontent.com/cyancity/easy-unlocker/main/scripts/install.ps1' -OutFile $installer
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
+& (Join-Path $env:LOCALAPPDATA 'Programs\easy-unlocker\easyGet.exe') --version
+```
+
+Windows binaries from `v2026.09.16` and earlier do not support native config or `--exec`; update first. Use `Get-Command easyGet -All` to find an older copy that still takes precedence. Do not relax the config ACL to work around an old binary.
+
 ## Choosing the release mode
 
 | Situation | Use |
@@ -44,10 +55,12 @@ install -m 755 /tmp/easyGet ~/.local/bin/easyGet && easyGet --help
 | Variable | Content |
 |---|---|
 | `EASYGET_SECRET` | the value itself (`--env-name` renames it) |
-| `EASYGET_SECRET_FD` | `/dev/fd/3` — anonymous fd holding the same bytes; unlinked immediately, gone when the child exits |
+| `EASYGET_SECRET_FD` | Unix: `/dev/fd/3`, unlinked immediately. Windows: a private temporary file path, removed when the child exits |
 | `EASYGET_ITEM` | the item name you asked for |
 
 `--exec` propagates the child's exit code.
+
+Windows `--exec` uses `cmd.exe` syntax (`%NAME%`), even when the outer terminal is PowerShell. For PowerShell code use `--exec 'powershell.exe -NoProfile -File job.ps1'`, then read `$env:EASYGET_SECRET` or `$env:EASYGET_SECRET_FD` inside that script. Pass native Windows paths directly to `--write-to`; WSL path conversion is unnecessary with an updated native binary. Windows keeps the temporary carrier on disk until the child exits; abnormal termination may leave it behind.
 
 The phone's approval screen states the consequence up front ("will write to `<path>`" vs "never touches disk") — the user sees it before approving.
 

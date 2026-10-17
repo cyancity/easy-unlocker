@@ -26,7 +26,20 @@ install -m 755 /tmp/easyGet ~/.local/bin/easyGet
 easyGet --help          # 英文说明；能打出来即为当前版本
 ```
 
-指定版本把 `latest/download` 换成 `download/<tag>`。Windows 下 `easyGet-windows-amd64.exe`。
+指定版本把 `latest/download` 换成 `download/<tag>`。
+
+Windows 原生环境使用 PowerShell 安装，不要运行上面的 `uname` / `install` 命令：
+
+```powershell
+$installer = Join-Path $env:TEMP 'easy-unlocker-install.ps1'
+Invoke-WebRequest 'https://raw.githubusercontent.com/cyancity/easy-unlocker/main/scripts/install.ps1' -OutFile $installer
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
+& (Join-Path $env:LOCALAPPDATA 'Programs\easy-unlocker\easyGet.exe') --version
+```
+
+安装脚本下载 `easyGet-windows-amd64.exe` 或 `easyGet-windows-arm64.exe`，优先放到用户 PATH，避免仍然调用旧目录里的二进制。新开的终端才能看到持久 PATH 更新。需要确认时用 `Get-Command easyGet -All`，只检查命令路径，不读取配置内容。源码维护者可传 `-BinaryPath <已构建的 exe>`。
+
+`v2026.09.16` 及更早的 Windows 二进制缺少原生支持，会报 `cannot read easy-unlocker config`，`--exec` 也不可用。先更新二进制，不要把配置改成公开可读来规避错误。
 
 同一 release 里还有 `broker-linux-arm64`（部署用）、`easy-unlocker-debug.apk`（手机用）、`SHA256SUMS`（校验）。
 
@@ -65,10 +78,10 @@ go build -trimpath -o dist/easyGet ./cli/cmd/easyget
 
 ```bash
 bash scripts/release.sh            # 打当天 tag vYYYY.MM.DD，同日再打是 -2、-3
-bash scripts/release.sh --no-apk   # 跳过 gradle（只发 easyGet / broker）
+bash scripts/release.sh --no-apk   # 更新 CLI / Broker，原样复用上一版 APK
 ```
 
-会交叉编译 `easyGet`（darwin/linux/windows × arm64/amd64）、`broker-linux-arm64`、APK，附 `SHA256SUMS`，用 `gh release create --generate-notes` 发布。要求：在 main、工作区干净、与 origin 一致、`gh` 已登录；打 APK 还要求 `android/app/google-services.json` 与 `android/local.properties` 存在。
+会交叉编译 `easyGet`（darwin/linux/windows × arm64/amd64）、`broker-linux-arm64`、APK，附 `SHA256SUMS`，用 `gh release create` 发布。要求：在 main、工作区干净、与 origin 一致、`gh` 已登录；打 APK 还要求 `android/app/google-services.json` 与 `android/local.properties` 存在。`--no-apk` 从上一版下载已有 APK 并在说明中标注来源，避免 `latest/download/easy-unlocker-debug.apk` 失效；首次发版必须构建 APK。
 
 不在 CI 里做的原因：APK 必须带 `google-services.json`（gitignore），且 CI 的 debug 签名与你本机不同，`adb install -r` 会签名冲突。
 
@@ -87,7 +100,7 @@ bash scripts/release.sh --no-apk   # 跳过 gradle（只发 easyGet / broker）
 
 Broker 地址必须是 `https://`；`http://` 只对本机地址放行，否则设备令牌会明文过网。
 
-配置文件权限必须是 `0600`（其它用户位必须为 0，否则 `easyGet` 拒绝读取）。目录建议 `0700`。
+Unix 配置文件权限必须是 `0600`（其它用户位必须为 0，否则 `easyGet` 拒绝读取），目录建议 `0700`。Windows 使用 NTFS ACL，`pair` 自动设置私有权限；读取时允许当前用户、SYSTEM 和 Administrators，拒绝其它主体的访问授权。不要对 Windows 配置套用 Unix mode 位。
 
 ```bash
 umask 077
@@ -142,10 +155,19 @@ token 拿不到时停下来问用户，不要扫全盘找。
 | 变量 | 内容 |
 |---|---|
 | `EASYGET_SECRET` | 值的本体；用 `--env-name MY_KEY` 可改名 |
-| `EASYGET_SECRET_FD` | `/dev/fd/3`，指向一个**匿名 fd**（写完就 unlink），给必须吃文件路径的工具 |
+| `EASYGET_SECRET_FD` | Unix 为 `/dev/fd/3` 匿名 fd；Windows 为当前用户私有的临时文件路径，子进程结束后删除。给必须吃文件路径的工具 |
 | `EASYGET_ITEM` | 这次的条目名 |
 
-`--exec` 会**原样透传子进程退出码**。值写进临时载体后立刻 unlink，文件系统里搜不到；但 macOS 没有 memfd，物理磁盘可能留有已释放块——不声称「绝对不过磁盘」。
+`--exec` 会**原样透传子进程退出码**。Unix 写入临时载体后立即 unlink；Windows 在子进程启动前关闭写句柄，保留私有文件供 PowerShell、.NET、Python 等程序读取，退出后删除。异常终止或断电可能留下 Windows 临时载体。两种平台均不承诺物理磁盘没有残留块。
+
+Windows 的 `--exec` 使用 `cmd.exe` 语法，变量写成 `%EASYGET_SECRET_FD%`。外层使用 PowerShell 不会改变这件事。需要 PowerShell 时把代码写入 `.ps1`，再显式调用：
+
+```powershell
+easyGet env MY_API_KEY --env-name MY_API_KEY --exec 'python run.py' --for '运行一次性脚本'
+easyGet env MY_API_KEY --exec 'powershell.exe -NoProfile -File job.ps1' --for '运行 PowerShell 脚本'
+```
+
+`job.ps1` 内用 `$env:EASYGET_SECRET` 或 `$env:EASYGET_SECRET_FD`，不要在外层提前展开凭据变量。Windows 路径可直接传给 `--write-to`，无需转换为 `/mnt/c/...`。
 
 落盘时成功只打印 `已完成`，值在 `--write-to` 文件里（`0600`）。不要 `cat` 该文件到对话。
 
