@@ -68,7 +68,7 @@ func loadConfigFile(path string, settings *Settings) error {
 	if err != nil {
 		return err
 	}
-	if err := checkConfigPrivate(info); err != nil {
+	if err := checkConfigPrivate(path, info); err != nil {
 		return err
 	}
 	material, err := os.ReadFile(path)
@@ -319,6 +319,9 @@ func WriteSecret(path string, value []byte) error {
 	if err := file.Chmod(0o600); err != nil {
 		return errors.New("无法保护目标文件")
 	}
+	if err := hardenPrivateFile(temporary); err != nil {
+		return errors.New("无法保护目标文件")
+	}
 	if _, err := file.Write(value); err != nil {
 		return errors.New("无法写入目标文件")
 	}
@@ -332,7 +335,6 @@ func WriteSecret(path string, value []byte) error {
 		return errors.New("无法替换目标文件")
 	}
 	removeTemporary = false
-	hardenPrivateFile(path)
 	return nil
 }
 

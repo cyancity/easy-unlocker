@@ -8,7 +8,7 @@
 # 用法：
 #   bash scripts/release.sh                 # 打当天 tag（vYYYY.MM.DD，同日再加 -2、-3）
 #   bash scripts/release.sh --tag v2026.09.20
-#   bash scripts/release.sh --no-apk        # 只发 easyGet / broker（跳过 gradle）
+#   bash scripts/release.sh --no-apk        # 更新 easyGet / broker，复用上一版 APK
 #
 # 前置：在 main、工作区干净、与 origin 一致；gh 已登录；打 APK 需要 Android SDK、
 #      android/app/google-services.json、android/local.properties。
@@ -19,6 +19,7 @@ cd "$REPO"
 
 TAG=""
 WITH_APK=true
+APK_SOURCE_TAG=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --tag) TAG="${2:-}"; shift 2 ;;
@@ -55,12 +56,12 @@ fi
 git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1 && fail "tag $TAG 已存在"
 
 OUT="dist/release/$TAG"
-rm -rf "$OUT"
+[ ! -e "$OUT" ] || fail "输出目录 $OUT 已存在，请检查已有产物或换一个 tag"
 mkdir -p "$OUT"
 
 # ---------- easyGet：多平台 ----------
 echo "== 编译 easyGet =="
-for target in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64 windows/amd64; do
+for target in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64 windows/amd64 windows/arm64; do
   os="${target%%/*}"
   arch="${target##*/}"
   name="easyGet-$os-$arch"
@@ -83,7 +84,9 @@ if $WITH_APK; then
   cp "$apk" "$OUT/easy-unlocker-debug.apk"
   echo "  easy-unlocker-debug.apk ($(du -h "$OUT/easy-unlocker-debug.apk" | cut -f1))"
 else
-  echo "== 跳过 APK（--no-apk）=="
+  APK_SOURCE_TAG="$(gh release view --json tagName -q .tagName)"
+  echo "== 复用 $APK_SOURCE_TAG 的 APK（--no-apk，保持 latest/download 安装链接可用）=="
+  gh release download "$APK_SOURCE_TAG" --pattern easy-unlocker-debug.apk --dir "$OUT"
 fi
 
 # ---------- 校验和 ----------
@@ -113,7 +116,12 @@ notes="产物：$names
 
 ${range}：
 $commits"
-gh release create "$TAG" "$OUT"/* --title "$TAG" --notes "$notes" >/dev/null
+if [ -n "$APK_SOURCE_TAG" ]; then
+  notes="$notes
+
+Android APK 原样复用自 $APK_SOURCE_TAG。本次未重新构建 Android。"
+fi
+gh release create "$TAG" "$OUT"/* --target "$(git rev-parse HEAD)" --title "$TAG" --notes "$notes" >/dev/null
 echo
 echo "✅ $TAG 已发布：$(gh release view "$TAG" --json url -q .url)"
 echo

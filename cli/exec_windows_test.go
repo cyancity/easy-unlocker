@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,45 @@ func TestRunWithSecretWindowsValidation(t *testing.T) {
 	}
 	if _, err := RunWithSecret("exit /B 0", []byte("value"), "item", "with-dash"); err == nil {
 		t.Fatal("含短横线的环境变量名应当报错")
+	}
+}
+
+func TestRunWithSecretWindowsUnicodeCommandAndCleanup(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "中文 with spaces")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TMP", dir)
+	t.Setenv("TEMP", dir)
+	input := filepath.Join(dir, "输入.txt")
+	output := filepath.Join(dir, "输出.txt")
+	if err := os.WriteFile(input, []byte("fixture"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, err := RunWithSecret(fmt.Sprintf("copy /b %q %q >nul\r\nexit /b 7", input, output), []byte("fixture-secret"), "fixture", "")
+	if err != nil || code != 7 {
+		t.Fatalf("RunWithSecret exit=%d err=%v, want 7", code, err)
+	}
+	if got, err := os.ReadFile(output); err != nil || string(got) != "fixture" {
+		t.Fatalf("Unicode command failed: output length=%d err=%v", len(got), err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 2 {
+		t.Fatalf("temporary command or secret carrier remains: entries=%d err=%v", len(entries), err)
+	}
+}
+
+func TestRunWithSecretWindowsFileReadableByPowerShell(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("TMP", dir)
+	t.Setenv("TEMP", dir)
+	code, err := RunWithSecret(`powershell.exe -NoProfile -NonInteractive -Command "$ErrorActionPreference='Stop'; if ([IO.File]::ReadAllText($env:EASYGET_SECRET_FD) -ne 'fixture-secret') { exit 9 }; exit 7"`, []byte("fixture-secret"), "fixture", "")
+	if err != nil || code != 7 {
+		t.Fatalf("PowerShell could not read carrier: exit=%d err=%v, want 7", code, err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("temporary command or secret carrier remains: entries=%d err=%v", len(entries), err)
 	}
 }
 

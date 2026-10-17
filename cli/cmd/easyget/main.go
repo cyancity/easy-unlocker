@@ -43,6 +43,10 @@ func run(args []string) error {
 		printHelp()
 		return nil
 	}
+	if args[0] == "version" || args[0] == "--version" {
+		fmt.Fprintln(os.Stdout, version)
+		return nil
+	}
 	// 子命令位置的 `-h`：`easyGet env -h` 里 "-h" 本来会被当成条目名。
 	if len(args) > 1 && isHelpArg(args[1]) &&
 		(args[0] == "env" || args[0] == "ssh" || args[0] == "ping" || args[0] == "list") {
@@ -53,10 +57,6 @@ func run(args []string) error {
 	settings, err := cli.LoadSettings(configPath)
 	if err != nil {
 		return err
-	}
-	if args[0] == "version" {
-		fmt.Fprintln(os.Stdout, version)
-		return nil
 	}
 	if args[0] == "ping" {
 		return runPing(settings, args[1:])
@@ -228,7 +228,7 @@ func listAge(d time.Duration) string {
 func runEnv(settings cli.Settings, item string, args []string, name string) error {
 	flags := newCommonFlags(name, settings)
 	writeTo := flagsSetString(flags, "write-to", "", "write the value to this file (stays on disk)")
-	execCmd := flagsSetString(flags, "exec", "", "run this command with the value; nothing is written to disk")
+	execCmd := flagsSetString(flags, "exec", "", "run this command with the value; temporary carrier removed on exit")
 	envName := flagsSetString(flags, "env-name", "", "env var carrying the value for --exec (default EASYGET_SECRET)")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -569,7 +569,7 @@ USAGE
                                                             (--refresh asks the phone: one approval)
   easyGet ping                                              check broker reachability
                                                             (also reports a newer release)
-  easyGet version                                           print this binary's version
+  easyGet version (or --version)                            print this binary's version
   easyGet --help                                            this text
 
 ITEM NAMES
@@ -588,14 +588,18 @@ ITEM NAMES
   "#items" is reserved for this handshake and cannot be used as an item name.
 
 RELEASE MODES (choose exactly one)
-  --write-to <path>   Writes the value to <path> (mode 0600) and prints "已完成".
+  --write-to <path>   Writes the value to <path> (0600 on Unix; private ACL on
+                      Windows) and prints "已完成".
                       The file STAYS on this machine. Parent directory must exist.
                       Use it only when something really needs a file on disk.
 
-  --exec "<command>"  Never writes a file. Runs <command> with the value exposed as
-                      environment variables and an anonymous file descriptor. The
-                      child's exit code becomes easyGet's exit code.
+  --exec "<command>"  Runs <command> with the value in environment variables and
+                      a temporary carrier, removed when the child exits. Unix
+                      unlinks the carrier immediately; Windows keeps a private
+                      temp file until exit. The child's exit code is preserved.
                       PREFER THIS for API keys and private keys.
+                      Unix commands use sh syntax. Windows commands use cmd.exe
+                      syntax (%NAME%); run a .ps1 with powershell.exe -File.
 
 ENVIRONMENT GIVEN TO --exec
   EASYGET_SECRET       the value itself (rename with --env-name MY_VAR)
