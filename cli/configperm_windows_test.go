@@ -73,6 +73,30 @@ func TestWindowsConfigRejectsPublicACL(t *testing.T) {
 	}
 }
 
+func TestWindowsConfigAcceptsUserSystemAndAdministrators(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	if err := os.WriteFile(path, []byte("broker_url=http://127.0.0.1:8787\npairing_token=fixture-token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	setWindowsTestDACL(t, path, "D:P(A;;FA;;;"+windowsTestSID(t).String()+")(A;;FA;;;SY)(A;;FA;;;BA)")
+	if _, err := LoadSettings(path); err != nil {
+		t.Fatalf("rejected private default Windows principals: %v", err)
+	}
+}
+
+func TestWindowsWriteSecretStopsBeforeFailedACLProtection(t *testing.T) {
+	dir := t.TempDir()
+	setWindowsTestDACL(t, dir, "D:P(D;OIIO;WD;;;OW)(A;OICI;FA;;;"+windowsTestSID(t).String()+")")
+	path := filepath.Join(dir, "secret")
+	if err := WriteSecret(path, []byte("fixture-secret")); err == nil {
+		t.Fatal("reported successful write despite denied ACL protection")
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("failed protected write left files: count=%d err=%v", len(entries), err)
+	}
+}
+
 func TestWindowsPrivateFileRemovesExplicitPublicGrant(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "secret")
 	if err := os.WriteFile(path, nil, 0o600); err != nil {
