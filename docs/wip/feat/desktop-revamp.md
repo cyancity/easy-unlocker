@@ -46,8 +46,28 @@
 5. 本机调试通道：window.onerror 横幅 + 临时 `__mark` 打点写 document.title/角标，
   验完删。
 
+## GLM-5.3-Flash 审阅结论（2026-10-29，禁 thinking 复跑成功）
+
+A 节（Windows 集成）4 个 P0/P1（安装器/发版产物/版本注入/单实例）本分支已全修；
+C 节（UX）P0×2 + P1×4（重绘打断、原生 confirm、默认字段、TTL tick、复制反馈、实现细节文案）
+新 UI 已覆盖。**既有问题不在本 PR 修**，按严重度记录如下，待单独分支处理：
+
+- [P0] vault 明文指针锁外使用的数据竞争：`requireVault` 持锁返回 `*vault` 后即解锁，
+  Approve/Items/CopyItem 无锁读 `v.plain`，与 `Lock()`/`Unpair()` 的 `v.clear()` 并发
+  （desktop/app.go）。修法：锁内快照条目或全程持锁。
+- [P1] Unpair 吞撤销失败，服务端令牌残留（app.go）。
+- [P1] StartQRPair 覆盖旧 session 未 Clear 私钥；PollQRPair 并发共用 sess.key（pairqr.go）；
+  配对成功路径先清密钥后落盘，落盘失败令牌丢失。
+- [P1] 明文 string 字段不可清零（vaultItem.Secret/Note），清零承诺只覆盖 key/[]byte。
+- [P1] requester 角色落地页/导航未按角色定制（前端）。
+- [P1] QR 会话 5min TTL 无过期感知；vault Items() 错误伪装成空库。
+- [P2] 托盘图标仅 16px 自绘（exe 图标已多尺寸，托盘未换）；日志 DEBUG 不轮转；
+  crypto 依赖两套版本（desktop v0.53 / 根 v0.33）；每次轮询新建 http.Client；
+  Unlock 连点叠加 argon2id 计算无防重入。
+
 ## 下一步
 
 - 合并后打一次 release（桌面产物首次进 Release）。
+- P0 数据竞争单独分支修（碰凭据路径，需独立深审）。
 - 暗色主题 + 批准卡片真机截图补充验收。
 - macOS 桌面端（tray_darwin 仍是 no-op 桩）。
