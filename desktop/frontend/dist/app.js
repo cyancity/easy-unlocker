@@ -79,6 +79,10 @@ async function refreshStatus() {
 
 // ---------- 配对 ----------
 
+// 单字段表单无 submit 按钮：不拦住 Enter 会触发隐式提交整页重载。
+// Enter = 主操作（生成二维码）。
+$("pair-form").onsubmit = (e) => { e.preventDefault(); $("qr-btn").click(); };
+
 $("qr-btn").onclick = async () => {
   const broker = $("pair-broker").value.trim();
   if (!broker) return toast("先填 Broker 地址", true);
@@ -316,7 +320,14 @@ document.querySelectorAll(".nav-btn").forEach((b) => {
   };
 });
 
-setInterval(() => { if (state.status?.paired) refreshPending(); }, 3000);
+// 批准页 3s 跟手；其它页 9s 足够 badge 用——后端 watchPending 本就 3s 打同一端点。
+let pollTick = 0;
+setInterval(() => {
+  if (!state.status?.paired) return;
+  pollTick++;
+  if (page !== "approve" && pollTick % 3 !== 0) return;
+  refreshPending();
+}, 3000);
 
 if (window.runtime && window.runtime.EventsOn) {
   // 后台在系统锁屏时锁库并发事件——前端刷状态并回到门禁页。

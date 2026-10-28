@@ -41,6 +41,11 @@ function Remove-Install {
     }
     Remove-Item -LiteralPath $startMenuLnk, $startupLnk -Force -ErrorAction SilentlyContinue
     Remove-Item $appPathsKey, $uninstallKey -Recurse -Force -ErrorAction SilentlyContinue
+    # 脚本副本与目录：目录里还有 easyGet.exe（CLI 安装器共用）时保留。
+    Remove-Item -LiteralPath (Join-Path $InstallDir 'uninstall-desktop.ps1') -Force -ErrorAction SilentlyContinue
+    if ($InstallDir -and (Test-Path -LiteralPath $InstallDir) -and -not (Get-ChildItem -LiteralPath $InstallDir -Force)) {
+        Remove-Item -LiteralPath $InstallDir -Force
+    }
     Write-Host 'easy-unlocker 桌面端已卸载（配置与本地库缓存保留，在 %APPDATA%\easy-unlocker）。'
 }
 
@@ -58,6 +63,22 @@ try {
         $url = "https://github.com/cyancity/easy-unlocker/releases/latest/download/easy-unlocker-desktop-windows-$arch.exe"
         Write-Host "下载 $url"
         Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
+        # SHA256 与发布清单对照：防下载链路被替换。清单拉不到只警告（首版 release 可能还没有桌面产物）。
+        $sums = $null
+        try { $sums = (Invoke-WebRequest -Uri 'https://github.com/cyancity/easy-unlocker/releases/latest/download/SHA256SUMS' -UseBasicParsing).Content } catch {}
+        if ($sums) {
+            $want = (($sums -split "`n") | Where-Object { $_ -match "easy-unlocker-desktop-windows-$arch\.exe" } | Select-Object -First 1)
+            if ($want) {
+                $want = ($want -replace '^([0-9a-fA-F]{64}).*$', '$1').ToLower()
+                $got = (Get-FileHash -LiteralPath $tmp -Algorithm SHA256).Hash.ToLower()
+                if ($want -ne $got) {
+                    Remove-Item -LiteralPath $tmp -Force
+                    throw "SHA256 校验失败（清单 $want，实际 $got），已丢弃下载文件"
+                }
+            }
+        } else {
+            Write-Warning 'SHA256SUMS 拉不到，跳过校验继续安装。'
+        }
     }
     Move-Item -LiteralPath $tmp -Destination $target -Force
 } finally {

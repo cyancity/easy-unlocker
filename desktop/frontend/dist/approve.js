@@ -6,7 +6,7 @@
 
 let lastPendingKey = "";
 
-function pendingCard(r, names, freshIds) {
+function pendingCard(r, freshIds) {
   const ttl = r.ttl > 0 ? r.ttl : 300;
   const meta = `
     <div><dt>来源</dt><dd class="mono">${esc(r.requester || "?")}</dd></div>
@@ -121,12 +121,13 @@ async function renderPending(freshIds = []) {
   }
   const focusInside = wrap.contains(document.activeElement);
   if (key !== lastPendingKey && !focusInside) {
-    wrap.innerHTML = list.map((r) => pendingCard(r, [], freshIds)).join("");
+    wrap.innerHTML = list.map((r) => pendingCard(r, freshIds)).join("");
     wrap.querySelectorAll(".req-card").forEach((c) => bindCard(c, list));
     await fillItemSelects(wrap, list);
     tickCountdowns();
-    const first = wrap.querySelector(".req-card.fresh .approve-btn");
-    if (first && freshIds.length) first.focus();
+    // 焦点落在卡片本身而非批准按钮：窗口自动弹出时误按 Enter 不至于直接放密码。
+    const fresh = wrap.querySelector(".req-card.fresh");
+    if (fresh && freshIds.length) { fresh.setAttribute("tabindex", "-1"); fresh.focus(); }
     lastPendingKey = key;
   }
   tickCountdowns();
@@ -139,9 +140,13 @@ function tickCountdowns() {
     const left = Math.round((new Date(card.dataset.exp).getTime() - now) / 1000);
     const total = +card.dataset.ttl || 300;
     const label = card.querySelector("[data-countdown]");
-    if (label) label.textContent = fmtTtl(left);
     const bar = card.querySelector(".req-bar");
     const fill = bar?.querySelector("i");
+    if (!Number.isFinite(left)) {
+      if (label) label.textContent = "--:--";
+      return;
+    }
+    if (label) label.textContent = fmtTtl(left);
     if (fill) fill.style.width = `${Math.max(0, Math.min(100, (left / total) * 100))}%`;
     const urgent = left <= 60;
     bar?.classList.toggle("urgent", urgent);
