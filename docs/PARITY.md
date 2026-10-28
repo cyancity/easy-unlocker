@@ -69,12 +69,13 @@
 | 配对码配对（requester / approver 皆可） | ✅ | 填 broker + 手机上的一次性码；成功后令牌同时写进 easyGet 配置，CLI 立即可用 |
 | QR 配对（生成码 + 轮询 offer） | ✅ | 一次性 X25519 密钥对；密封 grant 解出令牌，轮询 2s，5min TTL；手动输码仍兜底 |
 | 发起 write 请求（GUI 当 requester） | ✅ | 批准结果进剪贴板，不落盘 |
-| 待批准轮询 + 批准/拒绝（approver） | ✅ | 3s 轮询；密封走 v2 boxpayload，与手机同路径 |
+| 待批准轮询 + 批准/拒绝（approver） | ✅ | 3s 轮询；密封走 v2 boxpayload，与手机同路径；纯备注条目默认放备注（与 Android `VaultField.defaultFor` 对齐） |
 | vault 密文同步下载 + 本地解锁 | ✅ | 密码 wrap 先试，恢复码兜底；明文只活内存 |
 | 条目浏览 + 复制 | ✅ | 只列名字/形状；值只在复制时过内存 |
 | 设备列表/撤销/改名（approver） | ✅ | |
 | 解除本机配对（登出） | ✅ | 撤销自己 + 清本地配置/vault 缓存 |
 | 单机离线模式 | ✅ | 不配 broker 就只本地——库密文可手动放 `vault-cache.json` |
+| Windows 安装/开始菜单/App Paths/自启动 | ✅ | `scripts/install-desktop.ps1`（可 `-Uninstall`）；单实例锁（二次启动唤起既有窗口）；PerMonitorV2 DPI manifest（`desktop/rsrc_windows_*.syso`） |
 | sign 模式批准 | ❌ | 桌面暂不签发 SSH 证书（需要 CA，仍归手机） |
 
 ## 已知问题 TODO（双端通用）
