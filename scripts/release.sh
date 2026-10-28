@@ -75,6 +75,15 @@ echo "== 编译 broker =="
 CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -buildvcs=false -ldflags "-s -w -X main.version=$TAG" -o "$OUT/broker-linux-arm64" ./broker/cmd/broker
 echo "  broker-linux-arm64"
 
+# ---------- 桌面客户端（Windows；独立 go module，前端已预构建进 frontend/dist） ----------
+# 安装走 scripts/install-desktop.ps1：开始菜单快捷方式 + App Paths + 卸载项。
+# macOS 桌面端需要本机 Xcode/wails 环境，暂不进 release（要用时本地构建）。
+echo "== 编译桌面客户端 =="
+for arch in amd64 arm64; do
+  (cd desktop && CGO_ENABLED=0 GOOS=windows GOARCH="$arch" go build -trimpath -tags desktop,production -ldflags "-s -w -H windowsgui -X main.version=$TAG" -o "../$OUT/easy-unlocker-desktop-windows-$arch.exe" .)
+  echo "  easy-unlocker-desktop-windows-$arch.exe ($(du -h "$OUT/easy-unlocker-desktop-windows-$arch.exe" | cut -f1))"
+done
+
 # ---------- Android APK ----------
 if $WITH_APK; then
   echo "== 编译 APK（gradle，可能要几分钟）=="
