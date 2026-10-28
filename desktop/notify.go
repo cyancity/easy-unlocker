@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+)
 
 // watchPending 后端轮询 pending：窗口藏在托盘时也照样提醒。
 // 只对「新出现」的请求提醒——seenReqs 按 request_id 去重，决定过/过期的清出集合。
@@ -41,6 +45,10 @@ func (a *App) watchPending() {
 		a.mu.Unlock()
 		for _, p := range fresh {
 			a.notifyNewRequest(p.Item, p.Requester, p.Purpose)
+		}
+		// 前端跳到批准页并立即拉一次列表；窗口可能藏在托盘，事件照发不误。
+		if len(fresh) > 0 {
+			wailsRuntime.EventsEmit(a.ctx, "pending:new")
 		}
 		if len(now) == 0 {
 			a.settleAfterDecide()
