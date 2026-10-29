@@ -68,7 +68,11 @@ type statusView struct {
 	VaultID      string `json:"vault_id"`
 	SyncedAt     string `json:"synced_at"`
 	HasLocalBlob bool   `json:"has_local_blob"`
+	Version      string `json:"version"`
 }
+
+// Version 供前端状态栏展示；release.sh 注入 tag，本地构建是 dev。
+func (a *App) Version() string { return version }
 
 func (a *App) Status() statusView {
 	a.mu.Lock()
@@ -86,6 +90,7 @@ func (a *App) Status() statusView {
 		Role:         a.cfg.Role,
 		VaultState:   state,
 		SyncedAt:     a.cached.UpdatedAt,
+		Version:      version,
 		HasLocalBlob: a.cached.Blob != "",
 	}
 	if a.vault != nil {
@@ -322,7 +327,10 @@ func (a *App) Approve(requestID, itemName, field string) error {
 			value = []byte(item.Secret)
 		}
 		if len(value) == 0 {
-			return errors.New("这条没有内容可放")
+			if field == "note" {
+				return errors.New("这条没有备注可放")
+			}
+			return errors.New("这条没有密码——若值在备注里，切到「备注」再批准")
 		}
 	}
 	if strings.TrimSpace(target.SealPublicKey) == "" {

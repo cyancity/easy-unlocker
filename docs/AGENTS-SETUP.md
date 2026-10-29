@@ -41,7 +41,22 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
 
 `v2026.09.16` 及更早的 Windows 二进制缺少原生支持，会报 `cannot read easy-unlocker config`，`--exec` 也不可用。先更新二进制，不要把配置改成公开可读来规避错误。
 
-同一 release 里还有 `broker-linux-arm64`（部署用）、`easy-unlocker-debug.apk`（手机用）、`SHA256SUMS`（校验）。
+同一 release 里还有 `broker-linux-arm64`（部署用）、`easy-unlocker-debug.apk`（手机用）、`easy-unlocker-desktop-windows-amd64/arm64.exe`（桌面端）、`SHA256SUMS`（校验）。
+
+#### 桌面客户端（Windows）
+
+```powershell
+$installer = Join-Path $env:TEMP 'eu-desktop-install.ps1'
+Invoke-WebRequest 'https://raw.githubusercontent.com/cyancity/easy-unlocker/main/scripts/install-desktop.ps1' -OutFile $installer
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer            # 装 + 开始菜单快捷方式 + App Paths + 卸载项
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Startup  # 同上，另加登录自启动（托盘常驻推荐）
+```
+
+装完开始菜单搜 `easy-unlocker` 打开，`Win+R` 输 `easy-unlocker` 也行；卸载加 `-Uninstall`（配置与库缓存保留在 `%APPDATA%\easy-unlocker`）。要点：
+
+- **必须 `-tags desktop,production` 构建**（`go build` 裸编会弹 Wails 错误框）；版本号 `-ldflags -X main.version=<tag>` 注入，`easy-unlocker.exe --version` 可查。
+- **DPI manifest 在 `desktop/rsrc_windows_{amd64,arm64}.syso`**（PerMonitorV2 + 图标）。没它进程是 DPI-unaware，高缩放屏上位图拉伸、布局错位。改图标/manifest 后用 `rsrc` 重生成两个 syso 并提交。
+- 源码本地构建：`(cd desktop && go build -trimpath -tags desktop,production -ldflags "-H windowsgui" -o easy-unlocker.exe .)`；前端无构建步骤（`frontend/dist` 手写 `index.html`/`style.css`/`ui.js`/`app.js`/`approve.js`）。
 
 装完照 2 节写配置。手机装 APK：
 
