@@ -23,6 +23,7 @@ const ALLOWED_REQUEST_KEYS = [
   "target",
   "requester",
   "delivery",
+  "field",
   "public_key",
   "ssh_user",
   "cert_ttl",
@@ -101,6 +102,9 @@ function validateRequest(body: any, maxTTL: number): string {
   if (str(body.delivery) !== "" && str(body.delivery) !== "file" && str(body.delivery) !== "ephemeral") {
     return "delivery is invalid";
   }
+  if (str(body.field) !== "" && str(body.field) !== "password" && str(body.field) !== "note") {
+    return "field is invalid";
+  }
   if (str(body.requester).length > 512) return "requester is too long";
   if (str(body.public_key).length > 8192) return "public_key is too long";
   if (str(body.ssh_user).length > 256) return "ssh_user is too long";
@@ -175,6 +179,7 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
     target: str(body.target),
     requester: str(body.requester).trim() || "unknown",
     delivery: str(body.delivery).trim(),
+    field: str(body.field).trim(),
     sealPublicKey: str(body.seal_public_key).trim(),
     publicKey: str(body.public_key).trim(),
     sshUser: str(body.ssh_user).trim(),

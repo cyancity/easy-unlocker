@@ -86,9 +86,11 @@ type pendingView struct {
 	State         string `json:"state"`
 	SealPublicKey string `json:"seal_public_key"`
 	PublicKey     string `json:"public_key"`
-	ExpiresAt     string `json:"expires_at"`
-	ReceivedAt    string `json:"received_at"`
-	DeviceName    string `json:"device_name"`
+	// Field 是请求方要的栏（password / note）；空 = 请求方没指定，批准端自己定。
+	Field        string `json:"field"`
+	ExpiresAt    string `json:"expires_at"`
+	ReceivedAt   string `json:"received_at"`
+	DeviceName   string `json:"device_name"`
 }
 
 func (c *brokerClient) pending() ([]pendingView, error) {

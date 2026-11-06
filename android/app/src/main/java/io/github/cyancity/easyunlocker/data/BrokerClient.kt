@@ -35,6 +35,7 @@ class BrokerClient(
                         state = o.optString("state"),
                         seal_public_key = o.optString("seal_public_key"),
                         delivery = o.optString("delivery"),
+                        field = o.optString("field"),
                         public_key = o.optString("public_key"),
                         ssh_user = o.optString("ssh_user"),
                         cert_ttl = o.optInt("cert_ttl"),

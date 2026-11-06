@@ -21,6 +21,7 @@ export interface PendingRecord {
   target: string;
   requester: string;
   delivery: string;
+  field: string;
   sealPublicKey: string;
   publicKey: string;
   sshUser: string;
@@ -153,6 +154,7 @@ function pendingView(record: PendingRecord) {
     target: record.target || undefined,
     requester: record.requester || undefined,
     delivery: record.delivery || undefined,
+    field: record.field || undefined,
     received_at: new Date(record.receivedAt).toISOString(),
     expires_at: new Date(record.expiresAt).toISOString(),
     state: "waiting",

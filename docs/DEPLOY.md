@@ -9,6 +9,8 @@ Broker 是手机和 CLI 之间的中转：配对、按库路由请求、转发�
 | Cloudflare Worker（**默认**） | `worker/` | 不维护服务器；免费额度够单人用；一条 `wrangler deploy` 上线 |
 | Go 二进制 + VPS | `broker/` | 已有公网机器、想完全自控 |
 
+**协议扩展的兼容规则**：新字段一律可选。CLI 不给 `--field` 时请求里根本不带 `field` 键，老 Broker 照常受理；给了 `--field` 才需要 Broker 认这个字段——旧 Broker 会以「invalid request fields」拒掉这条请求。所以升级顺序是：**先换 Broker（Go 或 worker 两个都换），再用 `--field`**；反过来会让带 `--field` 的请求直接失败。不带 `--field` 的老用法不受任何影响。
+
 ## 方式一：Cloudflare Worker（默认）
 
 需要一个 Cloudflare 账号（免费版即可）。

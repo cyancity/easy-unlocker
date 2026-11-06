@@ -14,6 +14,15 @@ const (
 	ModeSign  = "sign"
 	ModeWrite = "write"
 
+	// Field 指出这次要放出条目的哪一栏。空串 = 不指定，由批准端自己决定
+	// （与旧版行为一致）。
+	//   FieldPassword：密码栏（短值：token、密码）
+	//   FieldNote：备注栏（长文本：SSH 私钥、整段 .env）
+	//
+	// 请求方指定它只是「建议」：批准端始终可以让用户改，值放错了栏是用户看得见的。
+	FieldPassword = "password"
+	FieldNote     = "note"
+
 	// Delivery 说明值怎么交到请求方。write 模式才有意义。
 	//   DeliveryFile（默认，空串等价）：写到 target 指定的文件，内容会留在那台机器上。
 	//   DeliveryEphemeral：只交给请求方进程（环境变量 / 匿名 fd），用完即焚，不落盘。
@@ -39,6 +48,10 @@ type Request struct {
 
 	// Delivery 只描述放出方式，供手机展示与用户确认；Broker 不据此做任何加密动作。
 	Delivery string `json:"delivery,omitempty"`
+
+	// Field 指出这次要哪一栏（password / note）。空串 = 不指定，批准端自己决定。
+	// 只对 write 模式有意义：sign 模式放出的是证书，没有栏可选。
+	Field string `json:"field,omitempty"`
 
 	PublicKey string `json:"public_key,omitempty"`
 	SSHUser   string `json:"ssh_user,omitempty"`
@@ -83,6 +96,9 @@ func (r Request) Validate(maxTTL int) error {
 	}
 	if r.Delivery != "" && r.Delivery != DeliveryFile && r.Delivery != DeliveryEphemeral {
 		return fmt.Errorf("delivery must be %q or %q", DeliveryFile, DeliveryEphemeral)
+	}
+	if r.Field != "" && r.Field != FieldPassword && r.Field != FieldNote {
+		return fmt.Errorf("field must be %q or %q", FieldPassword, FieldNote)
 	}
 	if len(r.Requester) > 512 {
 		return errors.New("requester is too long")

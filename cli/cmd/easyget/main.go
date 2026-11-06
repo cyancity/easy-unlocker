@@ -230,6 +230,7 @@ func runEnv(settings cli.Settings, item string, args []string, name string) erro
 	writeTo := flagsSetString(flags, "write-to", "", "write the value to this file (stays on disk)")
 	execCmd := flagsSetString(flags, "exec", "", "run this command with the value; temporary carrier removed on exit")
 	envName := flagsSetString(flags, "env-name", "", "env var carrying the value for --exec (default EASYGET_SECRET)")
+	field := flagsSetString(flags, "field", "", "which field to release: password (short values) or note (long text)")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -238,6 +239,10 @@ func runEnv(settings cli.Settings, item string, args []string, name string) erro
 		return errors.New("--for 是必需的")
 	}
 	target, delivery, err := resolveReleaseTarget(*writeTo, *execCmd)
+	if err != nil {
+		return err
+	}
+	wanted, err := resolveField(*field)
 	if err != nil {
 		return err
 	}
@@ -250,6 +255,7 @@ func runEnv(settings cli.Settings, item string, args []string, name string) erro
 		Target:    target,
 		Requester: flags.requester,
 		Delivery:  delivery,
+		Field:     wanted,
 	}
 	value, err := release(settings, request)
 	if err != nil {
@@ -272,6 +278,23 @@ func runEnv(settings cli.Settings, item string, args []string, name string) erro
 	}
 	fmt.Fprintln(os.Stdout, "已完成")
 	return nil
+}
+
+// resolveField 把 --field 的取值翻译成协议里的字段名。
+//
+// 空串 = 不指定：批准端按自己的规则挑（有密码放密码，没密码放备注）。
+// 指定了也只是一张建议——批准页上仍然可以改，用户看得见放出去的是哪一栏。
+func resolveField(value string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "":
+		return "", nil
+	case protocol.FieldPassword:
+		return protocol.FieldPassword, nil
+	case protocol.FieldNote:
+		return protocol.FieldNote, nil
+	default:
+		return "", errors.New("--field 只能是 password（短值：token、密码）或 note（长文本：SSH 私钥、整段 .env）")
+	}
 }
 
 // resolveReleaseTarget 把 --write-to / --exec 解析成（落盘路径, delivery）。
@@ -616,6 +639,14 @@ FLAGS
   --write-to <path>    release to this file
   --exec "<command>"   release to this command instead of a file
   --env-name <NAME>    env var name for the value in --exec (default EASYGET_SECRET)
+  --field <password|note>
+                        which field of the item to release. "password" is the short
+                        value (token, password); "note" is the long text (SSH private
+                        key, whole .env file). Use it when the value lives in the note
+                        but the item also has a password. Omit it and the approver
+                        decides: password if non-empty, otherwise note.
+                        It is only a suggestion — the approval screen still lets the
+                        user switch fields, and the chosen field is shown there.
   --requester <label>  who is asking (default user@host)
   --broker <url>       override the configured broker (https; plain http only for
                        127.0.0.1/localhost)
@@ -632,8 +663,8 @@ EXAMPLES
   easyGet env oci-api-key --exec 'sh -c "oci --config-file $OCI_CONFIG compute instance list"' \
     --for 'list instances'
 
-  # genuinely need a file (e.g. an env file another process reads)
-  easyGet env my-service-token --write-to ~/.config/myapp/.env \
+  # the value lives in the item's note field
+  easyGet env my-service-token --field note --write-to ~/.config/myapp/.env \
     --for 'service token for local dev'
 
 PAIRING

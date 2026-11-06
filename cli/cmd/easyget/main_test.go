@@ -57,6 +57,105 @@ func TestResolveReleaseTarget(t *testing.T) {
 	}
 }
 
+func TestResolveField(t *testing.T) {
+	cases := []struct {
+		name    string
+		value   string
+		want    string
+		wantErr bool
+	}{
+		{"不给就是空（批准端自己定）", "", "", false},
+		{"password", "password", protocol.FieldPassword, false},
+		{"note", "note", protocol.FieldNote, false},
+		{"大小写不敏感", "Note", protocol.FieldNote, false},
+		{"前后空白", "  password  ", protocol.FieldPassword, false},
+		{"不认识的值", "secret", "", true},
+		{"只有空白等价没给", " ", "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := resolveField(tc.value)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("want error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// --field 走完「CLI → Broker → 手机替身」：手机侧必须看到请求方要的那一栏。
+func TestEnvRequestCarriesRequestedField(t *testing.T) {
+	cases := []struct {
+		name  string
+		field string
+		want  string
+	}{
+		{"不给字段", "", ""},
+		{"要备注栏", "note", protocol.FieldNote},
+		{"要密码栏", "password", protocol.FieldPassword},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			httpServer, notifications := listBroker(t)
+			settings := cli.Settings{BrokerURL: httpServer.URL, PairingToken: "pairing-token", Requester: "agent@test"}
+			target := filepath.Join(t.TempDir(), "value.env")
+
+			args := []string{"--for", "取一条", "--write-to", target, "--ttl", "10"}
+			if tc.field != "" {
+				args = append(args, "--field", tc.field)
+			}
+			done := make(chan error, 1)
+			go func() {
+				done <- runEnv(settings, "fixture", args, "easyGet env")
+			}()
+			var notification broker.Notification
+			select {
+			case notification = <-notifications:
+			case <-time.After(10 * time.Second):
+				t.Fatal("Broker 没有把这条请求推出来")
+			}
+			view := pendingViewFor(t, httpServer.URL, notification.RequestID)
+			if view.Field != tc.want {
+				t.Fatalf("pending 视图 field=%q, want %q", view.Field, tc.want)
+			}
+			approveWith(t, httpServer.URL, view.RequestID, notification.ApproveSig,
+				sealAsPhone(t, view.SealPublicKey, view.RequestID, "value"))
+			if err := <-done; err != nil {
+				t.Fatal(err)
+			}
+			material, err := os.ReadFile(target)
+			if err != nil || string(material) != "value" {
+				t.Fatalf("落盘的值不对: %q %v", material, err)
+			}
+		})
+	}
+}
+
+// --field 拼错时要在发请求前就报错：请求方拼错了不该让用户白批准一次。
+func TestEnvRejectsUnknownFieldBeforeRequesting(t *testing.T) {
+	httpServer, notifications := listBroker(t)
+	settings := cli.Settings{BrokerURL: httpServer.URL, PairingToken: "pairing-token", Requester: "agent@test"}
+	target := filepath.Join(t.TempDir(), "value.env")
+	err := runEnv(settings, "fixture",
+		[]string{"--for", "取一条", "--write-to", target, "--field", "secret", "--ttl", "10"}, "easyGet env")
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	select {
+	case <-notifications:
+		t.Fatal("拼错的 --field 不该发出请求")
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
 type listNotifier struct{ ch chan broker.Notification }
 
 func (n *listNotifier) Notify(_ context.Context, notification broker.Notification) error {

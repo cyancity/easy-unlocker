@@ -102,6 +102,9 @@ easyGet env OPENAI_API_KEY --exec 'python run.py' --for "调 openai 接口"
 # 要文件就明说（0600）
 easyGet env OCI_KEY --write-to ~/.oci/key.pem --for "oci cli 读 key_file"
 
+# 值存在条目的备注栏（长文本）而不是密码栏？点名要备注
+easyGet env MY_TOKEN --field note --exec 'python run.py' --for "调接口"
+
 # 不知道库里有什么名字？先看本机缓存的名单（不联网，不惊动手机）
 easyGet list
 easyGet list --refresh   # 向手机要最新名单，需要批准一次

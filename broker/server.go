@@ -168,7 +168,9 @@ type PendingView struct {
 	Target        string    `json:"target,omitempty"`
 	Requester     string    `json:"requester,omitempty"`
 	Delivery      string    `json:"delivery,omitempty"`
-	Received      time.Time `json:"received_at"`
+	// Field 是请求方要的栏（password / note）。空串 = 请求方没指定，批准端自己定。
+	Field        string    `json:"field,omitempty"`
+	Received     time.Time `json:"received_at"`
 	Expires       time.Time `json:"expires_at"`
 	State         string    `json:"state"`
 	SealPublicKey string    `json:"seal_public_key,omitempty"`
@@ -582,6 +584,7 @@ func (s *Server) pendingView(pending *pendingRequest, state string) PendingView 
 		Target:        pending.request.Target,
 		Requester:     pending.request.Requester,
 		Delivery:      pending.request.Delivery,
+		Field:         pending.request.Field,
 		Received:      pending.received,
 		Expires:       pending.expires,
 		State:         state,

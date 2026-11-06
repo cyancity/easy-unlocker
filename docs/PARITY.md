@@ -11,6 +11,7 @@
 | env 请求 → 批准 → 密封交付（boxpayload） | ✅ | ✅ | |
 | list 模式（#items 手选） | ✅ | ✅ | |
 | sign 模式（`public_key`/`ssh_user`/`cert_ttl`） | ✅ | ✅ | 手机端签 OpenSSH 证书 |
+| 请求方指定放哪栏（`field`：`password`/`note`） | ✅ | ✅ | 请求方只给建议，批准页仍可切栏；空 = 批准端自己定（有密码放密码，没密码放备注） |
 | 设备角色（approver/requester） | ✅ | ✅ | |
 | 配对码（pair-code → claim） | ✅ | ✅ | 绑租户+角色；claim 响应回 `role` |
 | vault 密文同步 `GET/POST /v1/vault` | ✅ | ✅ | 租户内 opaque blob，≤2MiB；Go 版落 `data/vaults.json`，worker 落 DO storage |
@@ -29,6 +30,7 @@
 | 建库/解锁（指纹+密码+恢复码） | ✅ | ✅ | iOS 生物识别按硬件自适应 |
 | 条目 CRUD/搜索 | ✅ | ✅ | |
 | 批准闭环（env/list/sign 三模式） | ✅ | ✅ | 请求卡均含还原命令块（commandLine） |
+| 请求方指定的栏作为默认（`field`） | ✅ | ✅ | 请求方用 `--field password|note` 点名；批准页仍可切栏。值在备注里的条目不必每次手切 |
 | 批准页就地新建条目 | ✅ | ✅ | 选择面板首行「新建条目…」+ 空库直开；名称预填请求 item；保存按 requestId 自动选中，仍需手动批准；弹层开着持库锁防切后台打断 |
 | sign 批准页（登录用户/有效期/公钥指纹/选 CA） | ✅ | ✅ | |
 | 编辑页一键生成 CA 私钥填备注 | ✅ | ✅ | |
@@ -56,6 +58,7 @@
 | 能力 | 状态 |
 |---|---|
 | env / list / sign 请求 | ✅ |
+| `--field password\|note`（点名放哪栏） | ✅ | 请求方的建议，批准端可改；空 = 批准端按「有密码放密码、没密码放备注」自己定 |
 | `--ssh-user`/`--cert-ttl`/`--identity` | ✅ |
 | `pair --code`（绑租户） | ✅ | 设备名默认 `user@host`（可用 `--name` 覆盖），手机设备页显示的就是它 |
 | 显式传租户 | ➖ 设计上不需要（token 反查） |
@@ -69,7 +72,7 @@
 | 配对码配对（requester / approver 皆可） | ✅ | 填 broker + 手机上的一次性码；成功后令牌同时写进 easyGet 配置，CLI 立即可用 |
 | QR 配对（生成码 + 轮询 offer） | ✅ | 一次性 X25519 密钥对；密封 grant 解出令牌，轮询 2s，5min TTL；手动输码仍兜底 |
 | 发起 write 请求（GUI 当 requester） | ✅ | 批准结果进剪贴板，不落盘 |
-| 待批准轮询 + 批准/拒绝（approver） | ✅ | 3s 轮询；密封走 v2 boxpayload，与手机同路径；纯备注条目默认放备注（与 Android `VaultField.defaultFor` 对齐） |
+| 待批准轮询 + 批准/拒绝（approver） | ✅ | 3s 轮询；密封走 v2 boxpayload，与手机同路径；纯备注条目默认放备注（与 Android `VaultField.defaultFor` 对齐）；请求方用 `--field` 点名的栏优先 |
 | vault 密文同步下载 + 本地解锁 | ✅ | 密码 wrap 先试，恢复码兜底；明文只活内存 |
 | 条目浏览 + 复制 | ✅ | 只列名字/形状；值只在复制时过内存 |
 | 设备列表/撤销/改名（approver） | ✅ | |
