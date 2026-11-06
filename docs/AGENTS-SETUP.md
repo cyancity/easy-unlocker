@@ -268,6 +268,34 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 覆盖安装后请用户杀掉再打开一次。APK 和 `dist/` 都不入库。
 
+**模拟器（Windows 宿主）**：用 [`scripts/emulator.sh`](../scripts/emulator.sh)，别手敲 emulator 命令。
+
+```bash
+source scripts/emulator.sh start     # 起（GPU 走宿主，2 核）
+source scripts/emulator.sh status    # 看状态 + 确认渲染后端
+source scripts/emulator.sh stop      # 停
+```
+
+必须带 `-gpu host`：SwiftShader 是 CPU 软渲染，冷启动能把宿主 CPU 打满
+（实测峰值 421% 单核）。`-cores 2` 把峰值压到 240% 单核。起来后确认一行：
+
+```
+GLES: Google (NVIDIA Corporation), Android Emulator OpenGL ES Translator (NVIDIA GeForce RTX 3070/...)
+```
+
+看到 NVIDIA 才算走通宿主 GPU。宿主加速靠 WHPX（`emulator -accel-check` 报 usable），
+所以 x86_64 镜像不是纯软件模拟。
+
+没装过 SDK 的话（Windows）：
+
+```bash
+# cmdline-tools 解压到 $ANDROID_SDK_ROOT/cmdline-tools/latest
+sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+sdkmanager "emulator" "system-images;android-35;google_apis;x86_64"
+avdmanager create avd -n eu_test -k "system-images;android-35;google_apis;x86_64" --device pixel_6
+# 改 AVD 配置：hw.cpu.ncore=2 / hw.ramSize=2048M / hw.gpu.mode=host
+```
+
 ### 3.2 iOS
 
 bundle id：`io.github.cyancity.easyunlocker`。最低部署 iOS 17。
