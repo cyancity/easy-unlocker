@@ -749,6 +749,67 @@ func TestPendingViewCarriesDelivery(t *testing.T) {
 	}
 }
 
+// field 是请求方要的那一栏，Broker 原样透传到待批准视图：批准端据此决定默认放哪栏。
+func TestPendingViewCarriesField(t *testing.T) {
+	cases := []struct {
+		name  string
+		field string
+	}{
+		{"不给栏", ""},
+		{"要备注栏", protocol.FieldNote},
+		{"要密码栏", protocol.FieldPassword},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			notifier := &testNotifier{ch: make(chan Notification, 1)}
+			_, httpServer := newTestServer(t, NewMapStore(nil), notifier, &testAudit{}, 30*time.Second)
+			request := protocol.Request{
+				Item:    "my-key",
+				Mode:    protocol.ModeWrite,
+				Purpose: "取一条",
+				TTL:     5,
+				Field:   tc.field,
+			}
+			done := make(chan struct{})
+			go func() {
+				_, _ = postRequest(t, httpServer.URL, "pairing-test-token", request)
+				close(done)
+			}()
+			firstNotification := <-notifier.ch
+			pending := adminPending(t, httpServer.URL)
+			if len(pending) != 1 {
+				t.Fatalf("pending=%+v", pending)
+			}
+			if pending[0].Field != tc.field {
+				t.Fatalf("field=%q, want %q", pending[0].Field, tc.field)
+			}
+			_, _ = postDecision(t, httpServer.URL, firstNotification.RequestID, "deny", firstNotification.DenySig)
+			select {
+			case <-done:
+			case <-time.After(2 * time.Second):
+				t.Fatal("request did not finish after deny")
+			}
+		})
+	}
+}
+
+func TestRequestRejectsUnknownField(t *testing.T) {
+	notifier := &testNotifier{ch: make(chan Notification, 1)}
+	_, httpServer := newTestServer(t, NewMapStore(nil), notifier, &testAudit{}, 30*time.Second)
+	request := protocol.Request{
+		Item:    "x",
+		Mode:    protocol.ModeWrite,
+		Purpose: "p",
+		TTL:     5,
+		Target:  "/tmp/x",
+		Field:   "secret",
+	}
+	response, _ := postRequest(t, httpServer.URL, "pairing-test-token", request)
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d, want %d", response.StatusCode, http.StatusBadRequest)
+	}
+}
+
 func TestRequestRejectsUnknownDelivery(t *testing.T) {
 	notifier := &testNotifier{ch: make(chan Notification, 1)}
 	_, httpServer := newTestServer(t, NewMapStore(nil), notifier, &testAudit{}, 30*time.Second)

@@ -49,6 +49,11 @@ Windows binaries from `v2026.09.16` and earlier do not support native config or 
 | Program insists on a file path (oci `key_file`, `ssh -i`) | `--exec`, use `$EASYGET_SECRET_FD` inside the command |
 | A file must stay on disk (e.g. `.env` another process reads) | `--write-to`, and accept that it persists |
 | Private keys (PEM, key text) | prefer `--exec`; `--write-to` only if the user accepts disk |
+| The value lives in the item's **note** field, not its password | add `--field note` |
+
+Each item has two fields: **password** (short values — tokens, passwords) and **note** (long text — SSH private keys, whole `.env` files). Without `--field`, the approver picks: password if non-empty, otherwise note. When the value is in the note but the item also has a password, name it explicitly with `--field note` so the approver does not have to switch it by hand every time.
+
+`--field` accepts `password` or `note`. It is only a suggestion — the approval screen still lets the user switch fields, and shows which field is being released.
 
 `--exec` exposes to the child:
 

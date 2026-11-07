@@ -1060,7 +1060,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val item = itemId?.let { id -> items.firstOrNull { it.id == id } }
                 req.copy(
                     selectedItemId = itemId,
-                    selectedField = kept?.second ?: item?.let { VaultField.defaultFor(it.secret, it.note) },
+                    selectedField = kept?.second
+                        ?: item?.let { VaultField.requestedOrDefault(req.field, it.secret, it.note) },
                     firstSeenAt = kept?.third?.takeIf { it > 0 } ?: System.currentTimeMillis(),
                 )
             }
@@ -1114,7 +1115,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val item = _state.value.items.firstOrNull { it.id == itemId }
         val next = target.copy(
             selectedItemId = itemId,
-            selectedField = item?.let { VaultField.defaultFor(it.secret, it.note) },
+            selectedField = item?.let {
+                VaultField.requestedOrDefault(target.field, it.secret, it.note)
+            },
         )
         _state.value = _state.value.copy(
             pending = _state.value.pending.map { if (it.request_id == requestId) next else it },
@@ -1268,7 +1271,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             _state.value = _state.value.copy(toast = "找不到这条凭据")
             return
         }
-        val field = pending.selectedField ?: VaultField.defaultFor(item.secret, item.note)
+        val field = pending.selectedField
+            ?: VaultField.requestedOrDefault(pending.field, item.secret, item.note)
         val value = if (field == VaultField.NOTE) item.note else item.secret
         if (value.isBlank()) {
             _state.value = _state.value.copy(toast = if (field == VaultField.NOTE) "这条没有备注" else "这条没有密码")

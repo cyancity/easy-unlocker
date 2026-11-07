@@ -174,7 +174,10 @@ fun PendingPane(
         }
         if (!state.loading && req != null && !listRequest && !signRequest) {
             val chosen = state.items.firstOrNull { it.id == req.selectedItemId }
-            val field = chosen?.let { req.selectedField ?: VaultField.defaultFor(it.secret, it.note) }
+            val field = chosen?.let {
+                req.selectedField
+                    ?: VaultField.requestedOrDefault(req.field, it.secret, it.note)
+            }
             val ready = chosen != null &&
                 if (field == VaultField.NOTE) chosen.note.isNotBlank() else chosen.secret.isNotBlank()
             ActionsColumn {
@@ -465,7 +468,8 @@ private fun PendingBody(
             )
         }
         if (chosen != null) {
-            val field = req.selectedField ?: VaultField.defaultFor(chosen.secret, chosen.note)
+            val field = req.selectedField
+                ?: VaultField.requestedOrDefault(req.field, chosen.secret, chosen.note)
             Row(
                 Modifier.fillMaxWidth().padding(top = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,

@@ -165,6 +165,19 @@ token 拿不到时停下来问用户，不要扫全盘找。
 | 确实要一个文件留在本机（如给别的进程读的 `.env`） | `--write-to`（会落盘） |
 | 私钥类（PEM、私钥文件） | 优先 `--exec`；非要落盘时让用户知道 |
 
+**值在备注里还是密码里**：每条凭据分两栏——「密码」放短值（token、密码），「备注」放长文本（SSH 私钥、整段 `.env`）。不给 `--field` 时批准端自己挑：有密码放密码，没密码放备注。
+
+值明明存在备注里、却因为同一条目还填了密码而放错了栏，用 `--field` 点名：
+
+```bash
+./dist/easyGet env MY_SERVICE_TOKEN \
+  --field note \
+  --exec 'python run.py' \
+  --for '跑一次性脚本'
+```
+
+`--field` 只接受 `password`（短值）或 `note`（长文本）。它只是一张建议——批准页上照样能切栏，放出去的是哪一栏用户看得见。
+
 `--exec` 里子进程能拿到：
 
 | 变量 | 内容 |
@@ -254,6 +267,34 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 覆盖安装后请用户杀掉再打开一次。APK 和 `dist/` 都不入库。
+
+**模拟器（Windows 宿主）**：用 [`scripts/emulator.sh`](../scripts/emulator.sh)，别手敲 emulator 命令。
+
+```bash
+source scripts/emulator.sh start     # 起（GPU 走宿主，2 核）
+source scripts/emulator.sh status    # 看状态 + 确认渲染后端
+source scripts/emulator.sh stop      # 停
+```
+
+必须带 `-gpu host`：SwiftShader 是 CPU 软渲染，冷启动能把宿主 CPU 打满
+（实测峰值 421% 单核）。`-cores 2` 把峰值压到 240% 单核。起来后确认一行：
+
+```
+GLES: Google (NVIDIA Corporation), Android Emulator OpenGL ES Translator (NVIDIA GeForce RTX 3070/...)
+```
+
+看到 NVIDIA 才算走通宿主 GPU。宿主加速靠 WHPX（`emulator -accel-check` 报 usable），
+所以 x86_64 镜像不是纯软件模拟。
+
+没装过 SDK 的话（Windows）：
+
+```bash
+# cmdline-tools 解压到 $ANDROID_SDK_ROOT/cmdline-tools/latest
+sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+sdkmanager "emulator" "system-images;android-35;google_apis;x86_64"
+avdmanager create avd -n eu_test -k "system-images;android-35;google_apis;x86_64" --device pixel_6
+# 改 AVD 配置：hw.cpu.ncore=2 / hw.ramSize=2048M / hw.gpu.mode=host
+```
 
 ### 3.2 iOS
 

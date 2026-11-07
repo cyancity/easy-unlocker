@@ -11,6 +11,17 @@ object VaultField {
         note.isNotBlank() -> NOTE
         else -> PASSWORD
     }
+
+    /**
+     * 请求方要的栏（CLI 的 --field）。空串 = 请求方没指定。
+     *
+     * 请求方指定了就以它为默认：值放在备注里的条目，不必每次都让用户手动切。
+     * 但批准页上的「密码 / 备注」切换照旧可用——放错了栏用户看得见。
+     */
+    fun requestedOrDefault(requested: String, secret: String, note: String): String = when {
+        requested == PASSWORD || requested == NOTE -> requested
+        else -> defaultFor(secret, note)
+    }
 }
 
 /** 请求方希望怎么拿到值；只用于给用户展示后果。 */
@@ -103,6 +114,8 @@ data class PendingRequest(
     val state: String = "",
     val seal_public_key: String = "",
     val delivery: String = "",
+    /** 请求方要的栏（password / note）；空 = 请求方没指定，批准端自己定。 */
+    val field: String = "",
     /** sign 请求才有：要被签进证书的 SSH 公钥（authorized_keys 行）。 */
     val public_key: String = "",
     /** sign 请求才有：证书 principal（要登录的用户名）。 */

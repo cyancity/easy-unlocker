@@ -78,7 +78,12 @@ function bindCard(card, list) {
 
 // 与 Android VaultField.defaultFor 同义：有密码放密码，没密码有备注放备注——
 // 纯备注条目默认就放备注，批准端不用每次手切。
-function fieldDefaultFor(name) {
+// 请求方指定了栏（CLI 的 --field）就以它为准：值存在备注里的条目，
+// 不必每次都让用户手切。前端用 "secret"/"note"，协议用 "password"/"note"。
+function fieldDefaultFor(name, requested) {
+  if (requested === "note" || requested === "password") {
+    return requested === "note" ? "note" : "secret";
+  }
   const m = state.itemMetas?.get(name);
   if (m && !m.has_value && m.has_note) return "note";
   return "secret";
@@ -87,7 +92,7 @@ function fieldDefaultFor(name) {
 function syncAltField(card) {
   const alt = card.querySelector(".req-alt");
   if (!alt) return;
-  const def = fieldDefaultFor(card.querySelector(".approve-item").value);
+  const def = fieldDefaultFor(card.querySelector(".approve-item").value, card.dataset.fieldRequested);
   alt.querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.field === def));
 }
 
@@ -100,9 +105,11 @@ async function fillItemSelects(wrap, list) {
   wrap.querySelectorAll(".req-card").forEach((card) => {
     const sel = card.querySelector(".approve-item");
     if (!sel) return;
-    const want = list.find((r) => r.request_id === card.dataset.rid)?.item;
+    const request = list.find((r) => r.request_id === card.dataset.rid);
+    const want = request?.item;
     sel.innerHTML = [want, ...metas.map((m) => m.name).filter((n) => n !== want)].map((n) => `<option>${esc(n)}</option>`).join("");
-    card.dataset.fieldDefault = fieldDefaultFor(want);
+    card.dataset.fieldRequested = request?.field || "";
+    card.dataset.fieldDefault = fieldDefaultFor(want, card.dataset.fieldRequested);
     sel.addEventListener("change", () => syncAltField(card));
   });
 }

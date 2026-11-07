@@ -11,6 +11,15 @@ enum VaultField: String {
         if !note.trimmingCharacters(in: .whitespaces).isEmpty { return .note }
         return .password
     }
+
+    /// 请求方要的栏（CLI 的 --field）。空串 = 请求方没指定。
+    ///
+    /// 请求方指定了就以它为默认：值放在备注里的条目，不必每次都让用户手动切。
+    /// 但批准页上的「密码 / 备注」切换照旧可用——放错了栏用户看得见。
+    static func requestedOrDefault(requested: String, secret: String, note: String) -> VaultField {
+        if let field = VaultField(rawValue: requested) { return field }
+        return defaultFor(secret: secret, note: note)
+    }
 }
 
 /// 请求方希望怎么拿到值；只用于给用户展示后果。
@@ -125,6 +134,8 @@ struct PendingRequest: Codable, Identifiable, Equatable {
     var state: String = ""
     var sealPublicKey: String = ""
     var delivery: String = ""
+    /// 请求方要的栏（password / note）；空 = 请求方没指定，批准端自己定。
+    var field: String = ""
     /// sign 请求才有：要被签进证书的 SSH 公钥（authorized_keys 行）。
     var publicKey: String = ""
     /// sign 请求才有：证书 principal（要登录的用户名）。
@@ -144,6 +155,7 @@ struct PendingRequest: Codable, Identifiable, Equatable {
         case state
         case sealPublicKey = "seal_public_key"
         case delivery
+        case field
         case publicKey = "public_key"
         case sshUser = "ssh_user"
         case certTtl = "cert_ttl"
@@ -164,6 +176,7 @@ struct PendingRequest: Codable, Identifiable, Equatable {
         state = try c.decodeIfPresent(String.self, forKey: .state) ?? ""
         sealPublicKey = try c.decodeIfPresent(String.self, forKey: .sealPublicKey) ?? ""
         delivery = try c.decodeIfPresent(String.self, forKey: .delivery) ?? ""
+        field = try c.decodeIfPresent(String.self, forKey: .field) ?? ""
         publicKey = try c.decodeIfPresent(String.self, forKey: .publicKey) ?? ""
         sshUser = try c.decodeIfPresent(String.self, forKey: .sshUser) ?? ""
         certTtl = try c.decodeIfPresent(Int.self, forKey: .certTtl) ?? 0

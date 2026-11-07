@@ -329,7 +329,8 @@ final class AppState: ObservableObject {
             let itemId = kept?.0 ?? repo.matchOrNull(req.item)?.id
             let item = itemId.flatMap { id in currentItems.first { $0.id == id } }
             req.selectedItemId = itemId
-            req.selectedField = kept?.1 ?? item.map { VaultField.defaultFor(secret: $0.secret, note: $0.note) }
+            req.selectedField = kept?.1
+                ?? item.map { VaultField.requestedOrDefault(requested: req.field, secret: $0.secret, note: $0.note) }
             return req
         }
         let currentId = selectedPending?.requestId
@@ -363,7 +364,9 @@ final class AppState: ObservableObject {
         let item = items.first { $0.id == id }
         var next = cur
         next.selectedItemId = id
-        next.selectedField = item.map { VaultField.defaultFor(secret: $0.secret, note: $0.note) }
+        next.selectedField = item.map {
+            VaultField.requestedOrDefault(requested: cur.field, secret: $0.secret, note: $0.note)
+        }
         pending = pending.map { $0.requestId == requestId ? next : $0 }
         if selectedPending?.requestId == requestId { selectedPending = next }
     }
@@ -425,7 +428,8 @@ final class AppState: ObservableObject {
         guard let itemId = req.selectedItemId else { showToast("请先选一条凭据"); return }
         guard repo.isUnlocked() else { showToast("库已锁上，请先解锁再批准"); return }
         guard let item = repo.items().first(where: { $0.id == itemId }) else { showToast("找不到这条凭据"); return }
-        let field = req.selectedField ?? VaultField.defaultFor(secret: item.secret, note: item.note)
+        let field = req.selectedField
+            ?? VaultField.requestedOrDefault(requested: req.field, secret: item.secret, note: item.note)
         let value = field == .note ? item.note : item.secret
         guard !value.isEmpty else {
             showToast(field == .note ? "这条没有备注" : "这条没有密码")

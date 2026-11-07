@@ -103,6 +103,9 @@ easyGet env OPENAI_API_KEY --exec 'python run.py' --for "calling the openai api"
 # want a file? say so (mode 0600)
 easyGet env OCI_KEY --write-to ~/.oci/key.pem --for "oci cli reads key_file"
 
+# value stored in the item's note field (long text) rather than its password?
+easyGet env MY_TOKEN --field note --exec 'python run.py' --for "calling the api"
+
 # don't know the item names? print the names this machine has cached (no network, no prompt)
 easyGet list
 easyGet list --refresh   # ask the phone for the current list: one approval

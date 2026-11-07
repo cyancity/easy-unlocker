@@ -37,6 +37,7 @@ final class BrokerClient {
             r.state = o["state"] as? String ?? ""
             r.sealPublicKey = o["seal_public_key"] as? String ?? ""
             r.delivery = o["delivery"] as? String ?? ""
+            r.field = o["field"] as? String ?? ""
             r.publicKey = o["public_key"] as? String ?? ""
             r.sshUser = o["ssh_user"] as? String ?? ""
             r.certTtl = (o["cert_ttl"] as? NSNumber)?.intValue ?? 0

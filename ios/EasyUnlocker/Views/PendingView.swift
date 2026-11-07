@@ -314,7 +314,7 @@ struct PendingView: View {
         if let chosen {
             KVLabel("放出")
             Picker("放出", selection: Binding(
-                get: { req.selectedField ?? VaultField.defaultFor(secret: chosen.secret, note: chosen.note) },
+                get: { req.selectedField ?? VaultField.requestedOrDefault(requested: req.field, secret: chosen.secret, note: chosen.note) },
                 set: { state.selectField($0) }
             )) {
                 Text("密码").tag(VaultField.password)
@@ -323,7 +323,7 @@ struct PendingView: View {
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
 
-            let field = req.selectedField ?? VaultField.defaultFor(secret: chosen.secret, note: chosen.note)
+            let field = req.selectedField ?? VaultField.requestedOrDefault(requested: req.field, secret: chosen.secret, note: chosen.note)
             let value = field == .note ? chosen.note : chosen.secret
             KVCard {
                 Text(value.isEmpty ? "--" : String(value.prefix(240)))
@@ -416,7 +416,7 @@ struct PendingView: View {
             if listReq { return !state.items.isEmpty }
             if signReq { return chosen.flatMap(caKeyOf) != nil }
             guard let chosen else { return false }
-            let field = req.selectedField ?? VaultField.defaultFor(secret: chosen.secret, note: chosen.note)
+            let field = req.selectedField ?? VaultField.requestedOrDefault(requested: req.field, secret: chosen.secret, note: chosen.note)
             return field == .note ? !chosen.note.isEmpty : !chosen.secret.isEmpty
         }()
 
