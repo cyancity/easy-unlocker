@@ -117,7 +117,11 @@ func releaseField(chosen, requested string, item *vaultItem) string {
 	if item.Secret != "" {
 		return "secret"
 	}
-	return "note"
+	if item.Note != "" {
+		return "note"
+	}
+	// 两栏都空：放密码，跟 Android/iOS 的 defaultFor 一致（调用方会拦下并提示）。
+	return "secret"
 }
 
 func (a *App) Deny(requestID string) error {
